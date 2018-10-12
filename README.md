@@ -1,6 +1,6 @@
 # tvvar_paper
 
-Code Archive to reproduce all results in the paper XXX.
+Code Archive to reproduce all results in the paper https://arxiv.org/abs/1711.05204.
 
 ## Simulation 1: Random Graph
 
@@ -54,16 +54,3 @@ This folder contains R-code to reproduce all illustration figures except Figure 
 - IF_Figure2_GAM.R code for Figure 2
 - IF_Figure3_KS.R code for Figure 3
 - IF_Figure9_Simulation2.R code for Figure 9
-
-
-
-
-
-
-
-
-
-
-
-
-

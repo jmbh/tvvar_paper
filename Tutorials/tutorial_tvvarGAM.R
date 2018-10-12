@@ -1,4 +1,4 @@
-# jonashaslbeck@gmail.com, October 2017
+# jonashaslbeck@gmail.com, October 2018
 
 remove.packages("tvvarGAM") # in case old version is installed
 .rs.restartR()
@@ -38,7 +38,6 @@ tvvargam_obj <- tvvarGAM(data = mood_data,
 # Save model object
 saveRDS(tvvargam_obj, file="tvvargam20_obj.RDS")
 tvvargam_obj <- readRDS(file="tvvargam20_obj.RDS")
-
 
 
 # ----------------------------------------------------------------------------------

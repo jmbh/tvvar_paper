@@ -1,4 +1,4 @@
-# jonashaslbeck@gmail.com, August 2017
+# jonashaslbeck@gmail.com, October 2018
 
 remove.packages("mgm") # in case old version is installed
 .rs.restartR()
@@ -12,7 +12,7 @@ library(qgraph)
 # ----------------------- 1) Data Preparation --------------------------------------
 # ----------------------------------------------------------------------------------
 
-library(mgm) # 1.2-2
+library(mgm) # 1.2-5
 
 # Subset Mood variables
 mood_data <- as.matrix(symptom_data$data[, 1:12])
@@ -57,7 +57,7 @@ tvvar_obj <- tvmvar(data = mood_data,
                     level = rep(1, 12), 
                     lambdaSel = "CV",
                     timepoints = time_data$time_norm, 
-                    estpoints = seq(0, nrow(mood_data) - 1, length = 20), 
+                    estpoints = seq(0, 1, length = 20), 
                     bandwidth = bandwidth,
                     lags = 1,
                     beepvar = time_data$beepno,
