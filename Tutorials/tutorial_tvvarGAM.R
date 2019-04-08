@@ -1,9 +1,10 @@
-# jonashaslbeck@gmail.com, October 2018
+# jonashaslbeck@gmail.com, March 2019
 
-remove.packages("tvvarGAM") # in case old version is installed
-.rs.restartR()
-library(devtools)
-install_github("LauraBringmann/tvvarGAM")
+# remove.packages("tvvarGAM") # in case old version is installed
+# .rs.restartR()
+# library(devtools)
+# install_github("LauraBringmann/tvvarGAM")
+
 library(tvvarGAM)
 library(qgraph) # plotting
 
@@ -28,12 +29,13 @@ head(time_data)
 # ----------------------- 2) Estimation --------------------------------------------
 # ----------------------------------------------------------------------------------
 
-
 tvvargam_obj <- tvvarGAM(data = mood_data,
                          beepvar = time_data$beepno,
                          dayvar = time_data$dayno,
                          estimates = TRUE,
-                         plot = FALSE,nb=20,scale=TRUE)
+                         plot = FALSE,
+                         nb = 20,
+                         scale = TRUE)
 
 # Save model object
 saveRDS(tvvargam_obj, file="tvvargam20_obj.RDS")
@@ -142,17 +144,25 @@ Q$layout <- readRDS("layout_mgm.RDS")
 # Plot graph at selected fixed time points
 tpSelect <- c(8, 15, 18)
 
+# Edgecolor & lines
+a_edgecolor <- array("darkblue", dim=c(12, 12, 20))
+a_edgecolor[wadj_point < 0] <- "red"
+a_lty <- array(1, dim=c(12, 12, 20))
+a_lty[wadj_point < 0] <- 2
+
 for(tp in tpSelect) {
   qgraph(wadj_point_thresh[, , tp], 
          layout = Q$layout,
-#         edge.color = t(tvvar_obj$edgecolor[, , 1, tp]), 
+         #         edge.color = t(tvvar_obj$edgecolor[, , 1, tp]), 
          labels = mood_labels, 
          vsize = 13, 
          esize = 10,
          asize = 10, 
          mar = c(6, 6, 6, 6), 
          minimum = 0, 
-         maximum = .8)
+         maximum = .8, 
+         edge.color = a_edgecolor[, , tp], 
+         lty = a_lty[, , tp])
 }
 
 # 4) Timeline

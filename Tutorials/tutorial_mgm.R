@@ -1,9 +1,7 @@
-# jonashaslbeck@gmail.com, October 2018
+# jonashaslbeck@gmail.com, April 2018
 
-remove.packages("mgm") # in case old version is installed
-.rs.restartR()
 library(devtools)
-install_github("jmbh/mgm")
+# install_github("jmbh/mgm")
 
 figDir <- "" # Specify directory in which figures should be saved
 library(qgraph)
@@ -12,7 +10,7 @@ library(qgraph)
 # ----------------------- 1) Data Preparation --------------------------------------
 # ----------------------------------------------------------------------------------
 
-library(mgm) # 1.2-5
+library(mgm) # 1.2-7
 
 # Subset Mood variables
 mood_data <- as.matrix(symptom_data$data[, 1:12])
@@ -80,11 +78,11 @@ res_obj <- resample(object = tvvar_obj,
                     data = mood_data, 
                     nB = 50, 
                     blocks = 10,
-                    seeds = 1:50, 
+                    seeds = 2:51, 
                     quantiles = c(.05, .95))
 
-saveRDS(res_obj, file="res_obj_nB50_newbw34.RDS")
-res_obj <- readRDS(file="res_obj_nB50_newbw34.RDS")
+saveRDS(res_obj, file="res_obj_nB50_bw34.RDS")
+res_obj <- readRDS(file="res_obj_nB50_bw34.RDS")
 
 proc.time()[3] - t1 # Note that this takes a while
 
@@ -150,16 +148,17 @@ f_timeline_new <- function(length = .15,
   
 }
 
+
 # ----- Preprocessing  ------
 
-mean_wadj <- apply(tvvar_obj$wadj[, , 1, ], 1:2, mean) # also used for mean layout below
+# Compute mean movel over time to create decent layout
+mean_wadj <- apply(tvvar_obj$wadj[, , 1, ], 1:2, mean)
 
 par_ests <- tvvar_obj$wadj
 ind_negative <- which(tvvar_obj$signs == -1, arr.ind = T)
 par_ests[ind_negative] <- par_ests[ind_negative] * -1
 
-
-# get largest effects
+# Get largest effects
 larg <- sort(as.numeric(mean_wadj), decreasing = T)
 m_largPar <- matrix(NA, nrow = 20, ncol = 2)
 for(i in 1:20) m_largPar[i, ] <- which(mean_wadj == larg[i], arr.ind = TRUE)
@@ -189,6 +188,11 @@ saveRDS(Q$layout, "layout_mgm.RDS")
 # Plot graph at selected fixed time points
 tpSelect <- c(8, 15, 18)
 
+# Switch to colorblind scheme
+tvvar_obj$edgecolor[, , , ][tvvar_obj$edgecolor[, , , ] == "darkgreen"] <- c("darkblue")
+lty_array <- array(1, dim=c(12, 12, 1, 20))
+lty_array[tvvar_obj$edgecolor[, , , ] != "darkblue"] <- 2
+
 for(tp in tpSelect) {
   qgraph(t(tvvar_obj$wadj[, , 1, tp]), 
          layout = Q$layout,
@@ -200,6 +204,7 @@ for(tp in tpSelect) {
          mar = c(6, 6, 6, 6), 
          minimum = 0, 
          maximum = .45, 
+         lty = t(lty_array[, , 1, tp]),
          pie = pred_obj$tverrors[[tp]][, 3])
 }
 
@@ -211,7 +216,6 @@ f_timeline_new(length = .1,
                cex = 1)
 
 # 5) Line-plots + CIs
-
 plot.new()
 par(mar = c(4,4,1,1))
 plot.window(xlim=c(1, 20), ylim=c(-.5, .75))

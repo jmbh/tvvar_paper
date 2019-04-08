@@ -11,7 +11,8 @@ These R-files allow to run a single iteration:
 - VarSim_data.R generates data for one iteration (outputs a .RDS-data file)
 - VarSim_est.R takes the RDS.-data file from VarSim_data.R as input and estimates the model with all 5 methods on the data; outputs a .RDS-file containing a list with all estimates
 - VarSim_aux.R Functions used in VarSim_data.R to generate time-varying VAR models and sample observations from them
-- VarSim_aux_Laura.R Functions used in VarSim_est.R to estimate (time-varying) VAR models with the GAM methods and the GLM method
+- VarSim_aux_Laura.R Functions used in VarSim_est.R to estimate VAR models with the GLM method
+- VarSim_aux_tvvarGAM.R Functions to used in VARsim_est.R to estimate time-varying VAR models with the spline-smoothing method
 
 The batch-files were used to run the 100 iterations in parallel on the UvA LISA supercomputer. All these scripts do is to call both VarSim_data.R and VarSim_est.R with a different iteration. The iteration number is used as a random seed and hence any setup (even locally) that does that replicates our simulation results exactly.
 
@@ -35,6 +36,7 @@ The estimation is done in parallel in the same way as in Simulation 1:
 - VS_UT_est_submit.sh is the batch script used to send VS_UT_est_jobs.sh to 100 nodes with iteration (seeds) 1:100
 - VS_UT_aux.R contains functions called by VS_UT_data.R
 - VarSim_aux_Laura.R is the same file as described in Simulation 1
+- VarSim_aux_tvvarGAM.R is the same file as described in Simulation 1
 
 The size of the 2*100 output files is 5.3GB and is therefore not included in this archive.
 

@@ -1,12 +1,15 @@
-# jonashaslbeck@gmail.com; November 2017
+# jonashaslbeck@gmail.com; March 2019
+
+# Define Dirs
+simDir <- '...' #  SPECIFY MAIN DIRECTORY
+figDir_paper <- paste0(simDir, 'figures_paper/')
+dataDir_data <- paste0(simDir, "output_data/") # simulated data friles
+dataDir_est <- paste0(simDir, "output_est/") # simulated estimation files
 
 # ----------------------------------------------------------------------------------
 # --------------------------------- 1) Load Data -----------------------------------
 # ----------------------------------------------------------------------------------
 
-figDir_paper <- "" # Specify directory in which Figure is saved
-dataDir_data <- "" # Specify directory of 100 data files
-dataDir_est <- "" # Specify directory of 100 estimation files
 
 # Data
 v_files_data <- list.files(dataDir_data)
@@ -31,12 +34,14 @@ for(i in 1:n_files) {
 # --------------------------------- 2) Preprocessing Aux Function ------------------
 # ----------------------------------------------------------------------------------
 
-
 VS_UT_PP <- function(l_data, 
                      l_est, 
                      pbar = TRUE)
 {
-  
+ 
+  n_seq_log <- seq(3, 7.5, length = 12)
+  n_seq <- round(exp(n_seq_log))
+   
   # ---------- Create Output Object ----------
   
   out_est <- vector("list", length = 6)
@@ -53,6 +58,8 @@ VS_UT_PP <- function(l_data,
     l_parList_mvar <- list()
     l_parList_varGLM <- list()
     l_parList_tvmvar <- list()
+    l_parList_tvmvar_unreg <- list()
+    
     l_parList_gam <- list()
     l_parList_gam_th <- list()
     
@@ -181,7 +188,36 @@ VS_UT_PP <- function(l_data,
       l_parList_tvmvar[[i]] <- i_mat
       
       
-      # 5) ----- tv GAM Estimate -------------------------------------     
+      # 5) ----- tv mVar Estimate -------------------------------------     
+      
+      # Get out of Object
+      wadj <- l_est[[i]][[n]]$tvmvar$wadj[, , 1, ]
+      signs <- l_est[[i]][[n]]$tvmvar$signs[, , 1, ]
+      
+      # Add sign information
+      wadj_s <- wadj
+      wadj_s[!is.na(signs)] <- wadj_s[!is.na(signs)] * signs[!is.na(signs)]
+      
+      # Storage for local matrix
+      i_mat <- matrix(NA, ncol =24, nrow = nNodes^2)
+      
+      # Loop over all edge parameters
+      counter <- 1
+      for(rr in 1:nNodes) { # loop rows
+        for(cc in 1:nNodes) { # loop columns
+          i_mat[counter, 1] <- i
+          i_mat[counter, 2] <- rr
+          i_mat[counter, 3] <- cc
+          i_mat[counter, 4] <- Gind[rr, cc]
+          i_mat[counter, 5:24] <- wadj_s[rr, cc, 1:20]
+          counter <- counter + 1
+        } # end for: cc
+      } # end for: rr
+      
+      l_parList_tvmvar_unreg[[i]] <- i_mat
+   
+      
+      # 6) ----- tv GAM Estimate -------------------------------------     
       
       # Get out of Object
       wadj <- l_est[[i]][[n]]$gam
@@ -213,7 +249,7 @@ VS_UT_PP <- function(l_data,
       l_parList_gam[[i]] <- i_mat
       
       
-      # 6) ----- tv GAM (st) Estimate -------------------------------------     
+      # 7) ----- tv GAM (st) Estimate -------------------------------------     
       
       # Get out of Object
       wadj <- l_est[[i]][[n]]$gam
@@ -221,7 +257,7 @@ VS_UT_PP <- function(l_data,
       # Thin down to 20 dime points
       n_est <- dim(wadj)[3]
       wadj_20 <- wadj[,,round(seq(1, n_est, length=20)), 2] # new object: estimate at 4th dim 2
-      wadj_lower_CI <- wadj[,,round(seq(1, n_est, length=20)), 3] # lower CI sufficient, since all true parameters are positive
+      wadj_lower_CI <- wadj[,,round(seq(1, n_est, length=20)), 1] # lower CI sufficient, since all true parameters are positive
       
       # Threshold
       wadj_20[wadj_lower_CI < 0] <- 0
@@ -254,8 +290,9 @@ VS_UT_PP <- function(l_data,
     out_n[[n]][[2]] <- do.call(rbind, l_parList_mvar)
     out_n[[n]][[3]] <- do.call(rbind, l_parList_varGLM)
     out_n[[n]][[4]] <- do.call(rbind, l_parList_tvmvar)
-    out_n[[n]][[5]] <- do.call(rbind, l_parList_gam)
-    out_n[[n]][[6]] <- do.call(rbind, l_parList_gam_th)
+    out_n[[n]][[5]] <- do.call(rbind, l_parList_tvmvar_unreg)
+    out_n[[n]][[6]] <- do.call(rbind, l_parList_gam)
+    out_n[[n]][[7]] <- do.call(rbind, l_parList_gam_th)
     
   } # end for: n
   
@@ -264,7 +301,6 @@ VS_UT_PP <- function(l_data,
   return(out_n)
 
 } # EoF
-
 
 
 # ----------------------------------------------------------------------------------
@@ -276,8 +312,7 @@ VS_UT_prep <- VS_UT_PP(l_data = l_data,
                        l_est = l_est,
                        pbar = TRUE)
 
-saveRDS(VS_UT_prep, file="VS_UT_prep.RDS")
-
+saveRDS(VS_UT_prep, file="files/VS_UT_prep.RDS")
 
 
 # ----------------------------------------------------------------------------------
@@ -306,11 +341,11 @@ f_text <- function(text,
 # Define some vars
 n_seq_log <- seq(3, 7.5, length = 12)
 n_seq <- round(exp(n_seq_log))
-cols <- RColorBrewer::brewer.pal(5, 'Set1')
+cols <- RColorBrewer::brewer.pal(6, 'Set1')
 
 # define jittering, to aviod exactly overlapping lines
 j <- .075
-jitter <- c(3*j, -2*j, 2*j, -j, j)
+jitter <- c(3*j, -2*j, 2*j, -j, j, j*2)
 
 # ----- Plotting -----
 
@@ -427,7 +462,7 @@ for(d in d_seq) {
 
     l_n_errors <- list()
     
-    for(est in 2:6) {
+    for(est in 2:7) {
       
       for(n in 1:12) {
         
@@ -467,14 +502,16 @@ for(d in d_seq) {
 
       if(d==d_seq[3] & type == 6) {
         legend("left",
-               c('GLM(L1)', 'GLM', 'KS(L1)', 'GAM', 'GAM(st)'),
-               lty = rep(1,5), col = cols,
+               # c('GLM(L1)', 'GLM', 'KS(L1)', 'KS', 'GAM', 'GAM(st)'),
+               c('GLM', 'GLM(L1)', 'KS', 'KS(L1)', 'GAM', 'GAM(st)'),
+               col = cols[c(1,2,3,6,4,5)], 
+               lty = rep(1, 6),
                bg = 'white',
                bty = "n",
-               cex = 1.3)
+               cex = 1)
       } else {
-        points(1:12, means, col = cols[est-1], pch=20, cex = 1)
-        lines(1:12, means, col = cols[est-1], pch=20)  
+        points(1:12, means, col = cols[c(1,2,3,6,4,5)][est-1], pch=20, cex = 1)
+        lines(1:12, means, col = cols[c(1,2,3,6,4,5)][est-1], pch=20)  
       }
       
     } # end for: est
@@ -484,7 +521,7 @@ for(d in d_seq) {
     } else {
       if(type == 0) title(xlab = 'Number of Time points')
       if(d == 1) title(ylab = 'Mean Absolute Error')
-      axis(1, at = 1:12, labels = n_seq, cex.axis = .65)
+      axis(1, at = 1:12, labels = n_seq, cex.axis = .65, las =2)
       axis(2, round(seq(0, ymax, length = 5), 2), las = 2, cex.axis = .8)
       text(11.5, .48, v_letters[v_letters_ord[letter_c]], cex = 1.3)
     }

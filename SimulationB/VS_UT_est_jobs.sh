@@ -1,13 +1,13 @@
 #!/bin/bash
-
-#PBS -N VARsim_UT_Nov17
-#PBS -lnodes=1
-#PBS -lwalltime=5:00:00
+#SBATCH -N 1
+#SBATCH -t 07:00:00
 
 module load openmpi/gnu
-module load R/3.2.3
-module load c/intel
+module load R/3.3.1
+module load eb
+module load intel/2016b
 module load fortran/intel
+module load mkl
 
 
 #export R_LIBS=$HOME/rpackages:$R_LIBS

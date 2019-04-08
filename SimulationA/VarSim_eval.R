@@ -1,11 +1,10 @@
-# jonashaslbeck@gmail.com; November 2017
+# jonashaslbeck@gmail.com; March 2019
 
-
-# !!! Define Directories !!!
-
-figDir_paper <- '' # Directory to save figures
-simDir <- '' # Main directory of simulation files
-dir_files <- '' # Directory containing simulation ouput files
+# Define Dirs
+simDir <- '...' #  SPECIFY MAIN DIRECTORY
+figDir <- paste0(simDir, 'figures/')
+figDir_paper <- paste0(simDir, 'figures_paper/')
+dir_files <- paste0(simDir, "output/")
 
 # ----------------------------------------------------------------------------------
 # --------------------------------- 1) Load Data -----------------------------------
@@ -37,13 +36,20 @@ for(i in 1:n_files) {
 # --------------------------------- 2) Preprocess ----------------------------------
 # ----------------------------------------------------------------------------------
 
-## Data Structure:
+## Data Structure Strategy:
 # For each condition (n x p x sp) and estimation method we have
 # a matrix with columns: iteration, row, col, type, est1, est2, ..., est20
 # - row/col indicate the edge in the parameter matrix
 # - type is the type of the edge (0, 1, 2, ..., 8)
 
-# Note: In the paper we only report the condition p = 3 / sp = 3, which corresponds to 20 variables and a probability for off-diagonal elements to be present of 0.2
+n <- 12
+sp <- 3 # P(e) = 0.2
+p <- 2 # p = 10
+i <- 55
+
+# example true type graph:
+l_data[[i]][[n]][[sp]][[p]]$Graph$Gind
+
 
 # ---------- 2.1) Get Estimates ----------
 
@@ -60,7 +66,7 @@ varSim_PP <- function(l_data,
   n_seq <- round(exp(n_seq_log))
   
   # Create Storage Object
-  nest6 <- vector('list', length = 6) # true, var, mvar, gam and thresholded gam
+  nest6 <- vector('list', length = 7) # true, var, mvar, tvvar, tvvar_unreg, gam and thresholded gam
   nest3 <- vector('list', length = 3) # for sp/p
   nest8 <- vector('list', length = 12) # for n
   nest_n <- vector('list', length = n_files)
@@ -73,14 +79,15 @@ varSim_PP <- function(l_data,
   l_n <- lapply(l_n, function(x) l_p)
   
   for(n in 1:12) {
-    for(sp in 1:3) {
-      for(p in 1:3) {
+    for(sp in 3) {
+      for(p in 2) {
         
         # save matrix for each estimation type
         l_Plist_true <- list()
         l_Plist_mvar <- list()
         l_Plist_varGLM <- list()
         l_Plist_tvmvar <- list()
+        l_Plist_tvmvar_unreg <- list()
         l_Plist_gam <- list()
         l_Plist_gam_th <- list()
         
@@ -96,7 +103,7 @@ varSim_PP <- function(l_data,
           thin <- round(seq(1, n_seq[n], length = 20))
           tg <- l_data[[i]][[n]][[sp]][[p]]$Graph$G[, , thin]
           
-          # Take rowsums, to be able to subset for
+          # Take rowsums, to be able to subset for degree (needed for Simulation B)
           RS <- rowSums(Gind!=0)
           nodes_within_degree <- sum(RS %in% degree)
           
@@ -109,11 +116,11 @@ varSim_PP <- function(l_data,
             for(cc in 1:nNodes) { # loop columns
               
               if(RS[rr] %in% degree) {
-                i_mat[counter, 1] <- i
-                i_mat[counter, 2] <- rr
-                i_mat[counter, 3] <- cc
-                i_mat[counter, 4] <- Gind[rr, cc]
-                i_mat[counter, 5:24] <- tg[rr, cc, 1:20]
+                i_mat[counter, 1] <- i # edge id
+                i_mat[counter, 2] <- rr # row
+                i_mat[counter, 3] <- cc # column
+                i_mat[counter, 4] <- Gind[rr, cc] # type
+                i_mat[counter, 5:24] <- tg[rr, cc, 1:20] # true edge, thinned to 20 points
                 counter <- counter + 1
               } # end if: degree
               
@@ -225,7 +232,40 @@ varSim_PP <- function(l_data,
           l_Plist_tvmvar[[i]] <- i_mat
           
           
-          # 5) ----- GAM VAR Estimate -----
+          # 5) ----- Time-varying mVAR Estimate [unregularized] -----
+          
+          # Get out of Object
+          wadj <- l_est[[i]][[n]][[sp]][[p]]$tvmvar_unreg$wadj[, , 1, ]
+          signs <- l_est[[i]][[n]][[sp]][[p]]$tvmvar_unreg$signs[, , 1, ]
+          
+          # Add sign information
+          wadj_s <- wadj
+          wadj_s[!is.na(signs)] <- wadj_s[!is.na(signs)] * signs[!is.na(signs)]
+          
+          # Storage for local matrix
+          i_mat <- matrix(NA, ncol=24, nrow= nodes_within_degree * nNodes)
+          
+          # Loop over all edge parameters
+          counter <- 1
+          for(rr in 1:nNodes) { # loop rows
+            for(cc in 1:nNodes) { # loop columns
+              
+              if(RS[rr] %in% degree) {
+                i_mat[counter, 1] <- i
+                i_mat[counter, 2] <- rr
+                i_mat[counter, 3] <- cc
+                i_mat[counter, 4] <- Gind[rr, cc]
+                i_mat[counter, 5:24] <- wadj_s[rr, cc, 1:20]
+                counter <- counter + 1
+              } # end if: degree
+              
+            } # end for: cc
+          } # end for: rr
+          
+          l_Plist_tvmvar_unreg[[i]] <- i_mat
+          
+          
+          # 6) ----- GAM VAR Estimate -----
           
           # Get out of Object
           wadj <- l_est[[i]][[n]][[sp]][[p]]$gam
@@ -261,7 +301,7 @@ varSim_PP <- function(l_data,
           l_Plist_gam[[i]] <- i_mat
           
           
-          # 5) ----- GAM VAR Estimate - thresholded 95% CI -----
+          # 7) ----- GAM VAR Estimate - thresholded 95% CI -----
           
           # Get out of Object
           wadj <- l_est[[i]][[n]][[sp]][[p]]$gam
@@ -269,7 +309,7 @@ varSim_PP <- function(l_data,
           # Thin down to 20 dime points
           n_est <- dim(wadj)[3]
           wadj_20 <- wadj[,,round(seq(1, n_est, length=20)), 2] # new object: estimate at 4th dim 2
-          wadj_lower_CI <- wadj[,,round(seq(1, n_est, length=20)), 3]
+          wadj_lower_CI <- wadj[,,round(seq(1, n_est, length=20)), 1] # this was incorrect
           
           # Threshold
           wadj_20[wadj_lower_CI<0] <- 0
@@ -308,8 +348,9 @@ varSim_PP <- function(l_data,
         l_n[[n]][[sp]][[p]][[2]] <- do.call(rbind, l_Plist_mvar)
         l_n[[n]][[sp]][[p]][[3]] <- do.call(rbind, l_Plist_varGLM)
         l_n[[n]][[sp]][[p]][[4]] <- do.call(rbind, l_Plist_tvmvar)
-        l_n[[n]][[sp]][[p]][[5]] <- do.call(rbind, l_Plist_gam)
-        l_n[[n]][[sp]][[p]][[6]] <- do.call(rbind, l_Plist_gam_th)
+        l_n[[n]][[sp]][[p]][[5]] <- do.call(rbind, l_Plist_tvmvar_unreg)
+        l_n[[n]][[sp]][[p]][[6]] <- do.call(rbind, l_Plist_gam)
+        l_n[[n]][[sp]][[p]][[7]] <- do.call(rbind, l_Plist_gam_th)
         
       } # end for: p
     } # end for: sp
@@ -321,51 +362,58 @@ varSim_PP <- function(l_data,
 } # end of preprocessing function
 
 
+
+
 #### Call function for different degrees ###
 
 # a) For all degrees (main analysis)
 l_n <- varSim_PP(l_data = l_data, 
                  l_est = l_est,
-                 degree = 0:20, # Analyze all degrees together
+                 degree = 0:20,
                  pbar = TRUE)
 
-saveRDS(l_n, 'varSim_Preprocessed_newScript.RDS')
-l_n <- readRDS(paste0(simDir, 'varSim_Preprocessed_newScript.RDS'))
+saveRDS(l_n, 'files/SimA_preprocessed.RDS')
+# l_n <- readRDS(paste0(simDir, 'files/SimA_preprocessed.RDS'))
 
-# Checking
-j <- 7
-n <- 10
-l_n[[n]][[1]][[1]][[1]][j, 5:24] # true
-l_n[[n]][[1]][[1]][[2]][j, 5:24] # var lasso
-l_n[[n]][[1]][[1]][[3]][j, 5:24] # var glm
-l_n[[n]][[1]][[1]][[4]][j, 5:24] # tvmvar
-l_n[[n]][[1]][[1]][[5]][j, 5:24] # tv gam
-l_n[[n]][[1]][[1]][[6]][j, 5:24] # tv gam thresholded
+# Checking Example
+j <- 10
+n <- 12
+l_n[[n]][[3]][[2]][[1]][j, 5:24] # true
+l_n[[n]][[3]][[2]][[2]][j, 5:24] # var lasso
+l_n[[n]][[3]][[2]][[3]][j, 5:24] # var glm
+l_n[[n]][[3]][[2]][[4]][j, 5:24] # tvmvar
+l_n[[n]][[3]][[2]][[5]][j, 5:24] # tvmvar [unregularized]
+l_n[[n]][[3]][[2]][[6]][j, 5:24] # tv gam
+l_n[[n]][[3]][[2]][[7]][j, 5:24] # tv gam thresholded
+
+
 
 # ---------- 2.2) Get Computation Time ----------
 
 # set up storage
 nest3 <- vector('list', length = 3)
 nest8 <- vector('list', length = 12)
-nest3 <- lapply(nest3, function(x) matrix(NA, nrow = n_files, ncol=9))
+nest3 <- lapply(nest3, function(x) matrix(NA, nrow = n_files, ncol=11))
 nest3a <- lapply(nest3, function(x) nest3)
 nest8 <- lapply(nest8, function(x) nest3a)
 
 # Loop
-for(sp in 1:3) {
-  for(p in 1:3) {
+for(sp in 3) {
+  for(p in 2) {
     for(n in 1:12) {
       for(i in 1:n_files) {
         
-        c_row <- rep(NA, 9)
+        c_row <- rep(NA, 11)
         c_row[1:4] <- c(i, n, sp, p)
         
         for(est in 1:4) {
           c_row[5] <- l_est[[i]][[n]][[sp]][[p]]$mvar.time
           c_row[6] <- l_est[[i]][[n]][[sp]][[p]]$glmvar.time
           c_row[7] <- l_est[[i]][[n]][[sp]][[p]]$tvmvar.time
-          c_row[8] <- l_est[[i]][[n]][[sp]][[p]]$gam.time
-          c_row[9] <- l_est[[i]][[n]][[sp]][[p]]$bwObj.time
+          c_row[8] <- l_est[[i]][[n]][[sp]][[p]]$tvmvar.time_unreg
+          c_row[9] <- l_est[[i]][[n]][[sp]][[p]]$gam.time
+          c_row[10] <- l_est[[i]][[n]][[sp]][[p]]$bw.time
+          c_row[11] <- l_est[[i]][[n]][[sp]][[p]]$bw.time_unreg
         }
         nest8[[n]][[sp]][[p]][i,] <- c_row
         
@@ -389,24 +437,27 @@ time_collapse <- lapply(nest8, function(x) {
 time_collapse2 <- do.call(rbind, time_collapse)
 time_collapse2 <- as.data.frame(time_collapse2)
 colnames(time_collapse2) <- c('iter', 'n', 'sp', 'p',
-                              'mvar.time', 'glmvar.time', 'tvmvar.time', 'gam.time', 'bw.time')
+                              'mvar.time', 'glmvar.time', 
+                              'tvmvar.time', 'tvmvar.time_unreg',
+                              'gam.time', 
+                              'bw.time', 
+                              'bw.time_unreg')
 
+time_collapse2_noNA <- na.omit(time_collapse2)
 
-saveRDS(time_collapse2, "varSim_CompTime.RDS")
-# time_collapse2 <- readRDS("varSim_CompTime.RDS")
+saveRDS(time_collapse2_noNA, "files/varSim_CompTime.RDS")
+# time_collapse2 <- readRDS("files/varSim_CompTime.RDS")
 
 
 # ---------- 2.3) Compute Sparsity and Precision ----------
 
-# for each: n, sp, type, estimation method
-
 # Copy structure
-a_SP <- array(dim = c(12, 3, 3, 6, 2))
+a_SP <- array(dim = c(12, 3, 3, 7, 2))
 
 for(n in 1:12) {
-  for(sp in 1:3) {
-    for(p in 1:3) {
-      for(est in 1:6) {
+  for(sp in 3) {
+    for(p in 2) {
+      for(est in 2:7) {
         
         structure_true <- l_n[[n]][[sp]][[p]][[1]][, 5:24] != 0
         structure_est <- l_n[[n]][[sp]][[p]][[est]][, 5:24] != 0
@@ -423,9 +474,8 @@ for(n in 1:12) {
   }
 }
 
-saveRDS(a_SP, "varSim_StructureRecovery.RDS")
-# a_SP <- readRDS("varSim_StructureRecovery.RDS")
-
+saveRDS(a_SP, "files/varSim_StructureRecovery.RDS")
+# a_SP <- readRDS("files/varSim_StructureRecovery.RDS")
 
 
 # --------------------------------------------------------------------------------------------
@@ -436,10 +486,9 @@ saveRDS(a_SP, "varSim_StructureRecovery.RDS")
 # ---------- Simulation Setup: The 8 Edge types ----------
 
 n <- 12
-sp <- p <- 1
+sp <- 3
+p <- 2
 data_sp_p <- l_n[[n]][[sp]][[p]]
-
-dev.off()
 
 pdf(paste0(figDir_paper, 'Fig_8Types.pdf'), width = 12, height = 5)
 
@@ -466,20 +515,21 @@ dev.off()
 
 # ---------- Figure A: Average Absolute Error ----------
 
+
+plotFigureA <- function(CI=FALSE) {
+  
+
 # Define some vars
 p_seq <- c(5, 10, 20)
 sp_seq <- c(.05, .1, .2)
 n_seq_log <- seq(3, 7.5, length = 12)
 n_seq <- round(exp(n_seq_log))
-cols <- RColorBrewer::brewer.pal(5, 'Set1')
-
-height = 9
-pdf(paste0(figDir_paper, 'Fig_Sim_A_abserror.pdf'), width = height * 3 / 4, height = height)
+cols <- RColorBrewer::brewer.pal(6, 'Set1')
 
 # ----- Some Settings -----
 
 # Fix p / np
-p <- 3
+p <- 2
 sp <- 3
 
 # define jittering, to aviod exactly overlapping lines
@@ -506,8 +556,10 @@ for(type in c(1, 2, 4, 7, 0)) {
   axis(2, round(seq(0, ymax, length = 5), 2), las = 2, cex.axis = .8)
   
   l_n_errors <- list()
+  l_n_errors_qt25 <- list()
+  l_n_errors_qt75 <- list()
   
-  for(est in 2:6) {
+  for(est in 2:7) {
     
     for(n in 1:12) {
       
@@ -525,21 +577,46 @@ for(type in c(1, 2, 4, 7, 0)) {
       ss_error_pos_cm <- colMeans(ss_error_pos)
       ss_error_pt <- ss_error_pos_cm
       
+      l_n_errors_qt25[[n]] <- apply(ss_error_pos, 2, function(x) quantile(x, p=0.25))
+      l_n_errors_qt75[[n]] <- apply(ss_error_pos, 2, function(x) quantile(x, p=0.75))
+      
       l_n_errors[[n]] <- ss_error_pt
       
       # Set to zero if tvGAM wasn't estimated
-      if(est > 4) {
+      if(est > 5) {
         if(n < 4 & p == 3) l_n_errors[[n]] <- NA
         if(n < 3 & p == 2) l_n_errors[[n]] <- NA
+      }
+      
+      if(est > 5) {
+        if(n < 3 & p == 2) {
+          l_n_errors_qt25[[n]] <- NA
+          l_n_errors_qt75[[n]] <- NA
+        } 
       }
       
     } # end for: n
     
     # display means
     means <- unlist(lapply(l_n_errors, mean))
+    points(1:12, means, col = cols[c(1,2,3,6,4,5)][est-1], pch=20, cex = 1)
+    lines(1:12, means, col = cols[c(1,2,3,6,4,5)][est-1], pch=20)
     
-    points(1:12, means, col = cols[est-1], pch=20, cex = 1)
-    lines(1:12, means, col = cols[est-1], pch=20)
+    # Display CIs
+    if(CI) {
+      
+
+      # Lower CI
+      mean_25 <- unlist(lapply(l_n_errors_qt25, mean)) # average across 20 estimation points
+      lines(1:12, mean_25, lty=2, col = cols[c(1,2,3,6,4,5)][est-1])
+      # points(1:12, mean_25, lty=2, col = cols[c(1,2,3,6,5,4)][est-1], pch=21)
+      
+      # Upper CI
+      mean_75 <- unlist(lapply(l_n_errors_qt75, mean)) # average across 20 estimation points
+      lines(1:12, mean_75, lty=2, col = cols[c(1,2,3,6,4,5)][est-1])
+      # points(1:12, mean_75, lty=2, col = cols[c(1,2,3,6,5,4)][est-1], pch=21)
+      
+    }
     
   } # end for: est
   
@@ -560,11 +637,31 @@ plot.new()
 plot.window(xlim=c(0, 1), ylim=c(0, 1))
 
 legend("center",
-       c('GLM(L1)', 'GLM', 'KS(L1)', 'GAM', 'GAM(st)'),
-       lty = rep(1,5), col = cols,
+       # c('GLM(L1)', 'GLM', 'KS(L1)', 'KS', 'GAM', 'GAM(st)'),
+       c('GLM', 'GLM(L1)', 'KS', 'KS(L1)', 'GAM', 'GAM(st)'),
+       col = cols[c(1,2,3,6,4,5)], 
+       lty = rep(1, 6),
        bg = 'white',
        bty = "n",
        cex = 1.2)
+
+
+
+
+} # end of plotting Function
+
+height = 9
+pdf(paste0(figDir_paper, 'Fig_Sim_A_abserror.pdf'), width = height * 3 / 4, height = height)
+
+plotFigureA(CI = FALSE)
+
+dev.off()
+
+
+height = 9
+pdf(paste0(figDir_paper, 'Fig_Sim_A_abserror_withCIs.pdf'), width = height * 3 / 4, height = height)
+
+plotFigureA(CI = TRUE)
 
 dev.off()
 
@@ -580,7 +677,10 @@ mains <- c("Constant nonzero",
            "Constant zero")
 
 # Plot
-n <- sp <- p <- 1
+n <- 1
+sp <- 3
+p <- 3
+
 data_sp_p <- l_n[[n]][[sp]][[p]]
 
 dev.off()
@@ -609,6 +709,9 @@ for(type in c(1, 2, 4, 7, 0)) {
 
 # ---------- Figure B: For 2 types (linear up, constant up) and n = {103, 530, 1803} ----------
 
+
+cols <- RColorBrewer::brewer.pal(6, 'Set1')
+
 height = 9
 pdf(paste0(figDir_paper, 'Fig_Sim_B_2Examples.pdf'), width = height * 3 / 4, height = height)
 
@@ -625,7 +728,7 @@ lo <- layout(mat,
 
 
 # Fix parameters
-p <- 3
+p <- 2
 sp <- 3
 
 letter_c <- 1
@@ -650,10 +753,10 @@ for(type in 1:2) {
     
     # define jittering, to aviod exactly overlapping lines
     j <- .1
-    jitter <- c(3*j, -2*j, 2*j, -j, j)
+    jitter <- c(3*j, -2*j, 2*j, -j, j, 2*j)
     
     # Loop over estimation methods (1=true)
-    for(est in 2:6) {
+    for(est in 2:7) {
       
       # take subset for given estimation method
       ss_est <- data_sp_p[[est]][data_sp_p[[1]][,4] == type, ]
@@ -667,8 +770,8 @@ for(type in 1:2) {
       
       # display means
       means <- colMeans(ss_est)
-      points(1:20 + jitter[est-1], means, col = cols[est-1], pch=20, cex = 1)
-      lines(1:20, means, col = cols[est-1], pch=20, cex = 1)
+      points(1:20 + jitter[est-1], means, col = cols[c(1,2,3,6,4,5)][est-1], pch=20, cex = 1)
+      lines(1:20, means, col = cols[c(1,2,3,6,4,5)][est-1], pch=20, cex = 1)
       
       
       # display SDs
@@ -678,7 +781,7 @@ for(type in 1:2) {
                y0 = means-sds,
                x1 = 1:20 + jitter[est-1],
                y1 = means+sds,
-               col = cols[est-1])
+               col = cols[c(1,2,3,6,5,4)][est-1])
       
     }
     
@@ -691,12 +794,17 @@ for(type in 1:2) {
     # Legend
     if(type == 2 & n == 9) {
       
-      legend(2.5, .7,
-             c("True Parameter", 'GLM(L1)', 'GLM', 'KS(L1)', 'GAM', 'GAM(st)'),
-             lty = rep(1,6), col = c('black', cols),
+      # plot.new()
+      # plot.window(xlim=c(0, 1), ylim=c(0, 1))
+      
+      legend("top",
+             # c('GLM(L1)', 'GLM', 'KS(L1)', 'KS', 'GAM', 'GAM(st)'),
+             c('GLM', 'GLM(L1)', 'KS', 'KS(L1)', 'GAM', 'GAM(st)'),
+             col = cols[c(1,2,3,6,4,5)], 
+             lty = rep(1, 6),
              bg = 'white',
              bty = "n",
-             cex = 1)
+             cex = 1.2)
       
     }
     
@@ -740,8 +848,6 @@ par(mar=c(0,0,0,0))
 plot.window(xlim=c(-.01, .01), ylim=c(-.01, .01))
 text(0, 0, '     Linear Increase', cex=cex_metaT)
 
-
-
 dev.off()
 
 
@@ -752,7 +858,7 @@ dev.off()
 height = 4
 pdf(paste0(figDir_paper, 'Fig_Sim_C_Recov_PoolAv.pdf'), width = height * 2, height = height)
 
-p <- 3
+p <- 2
 sp <- 3
 
 # Set up Plotting area
@@ -762,28 +868,30 @@ par(mfrow = c(1,2),
 
 # Set un-identified variations to zero
 # a_SP <- readRDS("varSim_StructureRecovery.RDS")
-a_SP[1:3, 3, 3, 5:6, ] <- NA
+a_SP_new <- a_SP
+a_SP_new[1:2, 3, 2, 6:7, ] <- NA
 
 # Sensitivity
 plot.new()
 plot.window(xlim=c(1, 12), ylim=c(0, 1))
 
-for(est in 2:6) {
-  lines(a_SP[, sp, p, est, 1], col = cols[est-1])
-  points(a_SP[, sp, p, est, 1], col = cols[est-1], pch=20)
+est_all <- 7
+
+for(est in 2:est_all) {
+  lines(a_SP_new[, sp, p, est, 1], col = cols[c(1,2,3,6,4,5)][est-1])
+  points(a_SP_new[, sp, p, est, 1], col = cols[c(1,2,3,6,4,5)][est-1], pch=20)
 }
 axis(1, at = 1:12, label = n_seq, cex.axis = .44)
 title(xlab = 'Number of Time points')
 axis(2, c(0, .5, 1), las=2)
 title(ylab = 'Sensitivity', cex = 1.5)
 
-
 # Precision
 plot.new()
 plot.window(xlim=c(1, 12), ylim=c(0, 1))
-for(est in 2:6) {
-  lines(a_SP[, sp, p, est, 2], col = cols[est-1])
-  points(a_SP[, sp, p, est, 2], col = cols[est-1], pch=20)
+for(est in 2:est_all) {
+  lines(a_SP_new[, sp, p, est, 2], col = cols[c(1,2,3,6,4,5)][est-1])
+  points(a_SP_new[, sp, p, est, 2], col = cols[c(1,2,3,6,4,5)][est-1], pch=20)
 }
 axis(1, at = 1:12, label = n_seq, cex.axis = .44)
 title(xlab = 'Number of Time points')
@@ -791,12 +899,14 @@ axis(2, c(0, .5, 1), las=2)
 title(ylab = 'Precision', cex = 1.5)
 
 # Legend
-legend("right",
-       c('GLM(L1)', 'GLM', 'KS(L1)', 'GAM', 'GAM(st)'),
-       lty = rep(1,5), pch = rep(20, 5), col = cols,
+legend("left",
+       # c('GLM(L1)', 'GLM', 'KS(L1)', 'KS', 'GAM', 'GAM(st)'),
+       c('GLM', 'GLM(L1)', 'KS', 'KS(L1)', 'GAM', 'GAM(st)'),
+       col = cols[c(1,2,3,6,4,5)], 
+       lty = rep(1, 6),
        bg = 'white',
        bty = "n",
-       cex = .8)
+       cex = 1.2)
 
 
 dev.off()
@@ -804,24 +914,22 @@ dev.off()
 
 # ---------- Figure D: Computational Cost ----------
 
-TC <- time_collapse2
-library(RColorBrewer)
-time_colors <- RColorBrewer::brewer.pal(12, 'Set3')
+TC <- as.data.frame(time_collapse2_noNA)
 
 # Plotting
 pdf(paste0(figDir_paper, 'Fig_Sim_D_CompCost.pdf'), width = 7.5, height = 4)
 
 par(mfrow=c(1,1), mar = c(4, 4, 1, 1))
 
-maxtime <- 60
-p <- 3 # fix p
+maxtime <- 15
+p <- 2 # fix p
 
 # Setup
 plot.new()
 plot.window(xlim=c(1,12), ylim=c(0,maxtime))
 box()
 axis(1, n_seq, at = 1:12, cex = .50)
-axis(2, c(1, 20, 40, 60), las = 2)
+axis(2, c(1, 5, 10,15), las = 2)
 
 
 # Compute averages
@@ -852,9 +960,9 @@ legend("topleft",
        c("KS(L1)", 
          "Bandwidth Selection for KS(L1)", 
          "GAM(st)"), 
-       lty = 1:3, lwd = rep(2, 3))
+       lty = 1:3, lwd = rep(2, 3), 
+       bty = "n")
 
 dev.off()
-
 
 

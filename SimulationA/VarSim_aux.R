@@ -184,3 +184,21 @@ VARData <- function(graph,
 }
 
 
+# 
+# data <- VARData(graph = G$G,
+#                 th = matrix(0, 1000, 20), 
+#                 sd = 1, 
+#                 seed = 1)
+# 
+# 
+# # check convergence
+# plot.new()
+# plot.window(xlim = c(1,1000), ylim=c(-4.5, 4.5))
+# for(i in 1:20) lines(data[,i], type='l', col = i)
+# axis(2)
+# 
+# 
+# 
+# 
+
+
