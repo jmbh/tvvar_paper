@@ -38,10 +38,10 @@ VS_UT_PP <- function(l_data,
                      l_est, 
                      pbar = TRUE)
 {
- 
+  
   n_seq_log <- seq(3, 7.5, length = 12)
   n_seq <- round(exp(n_seq_log))
-   
+  
   # ---------- Create Output Object ----------
   
   out_est <- vector("list", length = 6)
@@ -215,7 +215,7 @@ VS_UT_PP <- function(l_data,
       } # end for: rr
       
       l_parList_tvmvar_unreg[[i]] <- i_mat
-   
+      
       
       # 6) ----- tv GAM Estimate -------------------------------------     
       
@@ -299,7 +299,7 @@ VS_UT_PP <- function(l_data,
   if(pbar) print(n)
   
   return(out_n)
-
+  
 } # EoF
 
 
@@ -313,7 +313,7 @@ VS_UT_prep <- VS_UT_PP(l_data = l_data,
                        pbar = TRUE)
 
 saveRDS(VS_UT_prep, file="files/VS_UT_prep.RDS")
-
+VS_UT_prep <- readRDS(file="SimulationB/files/VS_UT_prep.RDS")
 
 # ----------------------------------------------------------------------------------
 # --------------------------------- 4) Figure --------------------------------------
@@ -341,7 +341,7 @@ f_text <- function(text,
 # Define some vars
 n_seq_log <- seq(3, 7.5, length = 12)
 n_seq <- round(exp(n_seq_log))
-cols <- RColorBrewer::brewer.pal(6, 'Set1')
+cols <- RColorBrewer::brewer.pal(6, 'Paired')
 
 # define jittering, to aviod exactly overlapping lines
 j <- .075
@@ -374,52 +374,103 @@ layout(mat = lo,
 d_seq <- c(1, 10, 20)
 
 plot.new()
-for(d in 1:3) f_text(paste0("Indegree = ", d_seq[d]), cex = 1.5)
+for(d in 1:3) f_text(paste0("        Indegree = ", d_seq[d]), cex = 1.5)
 
+
+# margins for all remaining panels ..
+mar <- c(3,4,1,1)
 
 # B) --- Left column: types of parameters ---
 
-# Plot
-n <- 12
-data_show <- VS_UT_prep[[n]]
 
-sc <- 1.3
-par(mar = c(3*sc, 4*sc, 2*sc, 2*sc))
+# -- Define true parameter functions --
 
+edgetypes <- list()
+N <- 1000
+x <- seq(0, theta, length = N)
+k <- 15
+theta <- .35
+
+
+edgetypes[[1]] <- rep(theta, N) # Edge 1: Constant
+edgetypes[[2]] <- seq(0, theta, length = N) # Edge 2: Linear Increase
+edgetypes[[3]] <- seq(theta, 0, length = N) # Edge 3: Linear Decrease
+edgetypes[[4]] <- theta / (1 + exp (-k * (x - theta/2))) # Edge 4: Sigmoid Increase
+edgetypes[[5]] <- theta / (1 + exp (k * (x - theta/2))) # Edge 5: Sigmoid Decrease
+edgetypes[[6]] <- c(rep(theta, ceiling(N/2)), rep(0, floor(N/2))) # Edge 6: Step fuction increase
+edgetypes[[7]] <- c(rep(0, floor(N/2)), rep(theta, ceiling(N/2))) # Edge 7: Step fuction decrease
+edgetypes[[8]] <- rep(0, N) # Edge 8: Zero Constant
+
+titles <- c("Constant nonzero",
+            "Linear increase", 
+            "Sigmoid increase",
+            "Step function",
+            "Constant zero")
+
+
+# -- Plotting --
 
 # All together
 plot.new()
-par(mar=c(4, 5, 3, 2))
-plot.window(xlim=c(1, 20), ylim=c(-.15, .45))
-box()
-axis(2, c(0, .35), las=2)
-title(ylab = 'Parameter Value', cex=1.5)
-title(xlab = 'Time', line = 1, cex=1.5)
-title(main = "Average all types", cex = .6)
-v_types <- c(1, 2, 4, 7, 0)
-for(type in 1:5) lines(data_show[[1]][data_show[[1]][,4] == v_types[type], ][1, 5:24], lty=type, lwd=1, col = "grey")
+par(mar = mar)
+plot.window(xlim = c(0, N), ylim = c(-.1, .4))
+lwd <- 1
+axis(2, seq(-.1, .4, length=6), las=2)
+axis(1, labels=FALSE)
 
+for(type in 1:8) {
+  # Continuous functions
+  if(type %in% c(1:5, 8)) {
+    lines(1:1000, edgetypes[[type]], lwd=lwd, col="grey")
+  }
+  
+  # Step functions
+  if(type %in% 6:7) {
+    lines(1:500, edgetypes[[type]][1:500], lwd=lwd, col="grey")
+    lines(501:1000, edgetypes[[type]][501:1000], lwd=lwd, col="grey")
+    segments(500.5, 0, 500.5, theta, lty=2, col="grey")
+  }
+}
 
-mains <- c("Constant nonzero",
-           "Linear increase", 
-           "Sigmoid increase",
-           "Step function",
-           "Constant zero")
+# Legends and titles
+title(ylab = 'Parameter Value', cex.lab = 1)
+title(xlab = 'Time', line = .8, cex.lab = 1)
+mtext("Averaged across Types", side = 3, line = .3, cex = .8)
+
 
 # Seperately
-counter <- 1
-for(type in c(1, 2, 4, 7, 0)) {
+
+count <- 1
+for(type in c(1, 2, 4, 6, 8)) {
+  
   plot.new()
-  par(mar=c(4, 5, 3, 2))
-  plot.window(xlim=c(1, 20), ylim=c(-.15, .45))
-  box()
-  axis(2, c(0, .35), las=2)
-  lines(data_show[[1]][data_show[[1]][,4] == type, ][1, 5:24], lty=1, lwd=2)
-  title(ylab = 'Parameter Value', cex=1.5)
-  title(xlab = 'Time', line = 1, cex=1.5)
-  title(main = mains[counter], cex = .6)
-  counter <- counter + 1
+  par(mar = mar)
+  plot.window(xlim = c(0, N), ylim = c(-.1, .4))
+  lwd <- 1
+  axis(2, seq(-.1, .4, length=6), las=2)
+  axis(1, labels=FALSE)
+  
+  
+  # Continuous functions
+  if(type %in% c(1:5, 8)) {
+    lines(1:1000, edgetypes[[type]], lwd=lwd)
+  }
+  
+  # Step functions
+  if(type %in% 6:7) {
+    lines(1:500, edgetypes[[type]][1:500], lwd=lwd)
+    lines(501:1000, edgetypes[[type]][501:1000], lwd=lwd)
+    segments(500.5, 0, 500.5, theta, lty=2)
+  }
+  
+  # Legends and titles
+  title(ylab = 'Parameter Value', cex.lab = 1)
+  title(xlab = 'Time', line = .8, cex.lab = 1)
+  mtext(titles[count], side = 3, line = .3, cex = .8)
+  count <- count + 1
 }
+
+
 
 
 # C) --- Results ---
@@ -430,9 +481,9 @@ letter_c <- 1
 l_types <- list()
 l_types[[1]] <- c(1, 2, 4, 7, 0)
 l_types[[2]] <- 1
-l_types[[3]] <- 2
-l_types[[4]] <- 4
-l_types[[5]] <- 7
+l_types[[3]] <- 2:3 # collapse across symmetric functions
+l_types[[4]] <- 4:5
+l_types[[5]] <- 6:7
 l_types[[6]] <- 0
 
 lo <- matrix(c(1, 2, 3, 4,
@@ -456,10 +507,10 @@ for(d in d_seq) {
   for(type in 1:6) {
     
     plot.new()
-    par(mar = c(4,4,2,2))
+    par(mar = mar)
     ymax <- .5
     plot.window(xlim = c(1, 12), ylim = c(0, ymax))
-
+    
     l_n_errors <- list()
     
     for(est in 2:7) {
@@ -484,6 +535,9 @@ for(d in d_seq) {
           ss_true <- data[[1]][data[[1]][,4] %in% l_types[[type]] & data[[1]][,2] == d_inv, ][,5:24] # True matrix (est==1)
           ss_est <- data[[est]][data[[est]][,4] %in% l_types[[type]] & data[[est]][,2] == d_inv, ][,5:24] # Estimated Matrix
           
+          
+          
+          
           # Compute Absolute Error
           ss_error <- ss_true - ss_est
           ss_error_pos <- abs(ss_error)
@@ -499,25 +553,25 @@ for(d in d_seq) {
       # display means
       means <- unlist(lapply(l_n_errors, mean))
       # means <- unlist(lapply(l_n_errors, sd))
-
+      
       if(d==d_seq[3] & type == 6) {
         legend("left",
-               # c('GLM(L1)', 'GLM', 'KS(L1)', 'KS', 'GAM', 'GAM(st)'),
-               c('GLM', 'GLM(L1)', 'KS', 'KS(L1)', 'GAM', 'GAM(st)'),
-               col = cols[c(1,2,3,6,4,5)], 
-               lty = rep(1, 6),
+               c('GLM(L1)', 'GLM', 'KS(L1)', 'KS', 'GAM', 'GAM(st)'),
+               col = cols, 
+               lty = 1:6,
                bg = 'white',
                bty = "n",
-               cex = 1)
+               cex = 1.3, 
+               lwd = rep(1.5, 6))
       } else {
-        points(1:12, means, col = cols[c(1,2,3,6,4,5)][est-1], pch=20, cex = 1)
-        lines(1:12, means, col = cols[c(1,2,3,6,4,5)][est-1], pch=20)  
+        # points(1:12, means, col = cols[est-1], pch=20, cex = 1)
+        lines(1:12, means, col = cols[est-1], pch=20, lty=est-1, lwd=1.5)  
       }
       
     } # end for: est
     
     if(d==d_seq[3] & type == 6) {
-
+      
     } else {
       if(type == 0) title(xlab = 'Number of Time points')
       if(d == 1) title(ylab = 'Mean Absolute Error')
@@ -527,7 +581,7 @@ for(d in d_seq) {
     }
     
     
-  letter_c <- letter_c + 1
+    letter_c <- letter_c + 1
     
   } # end for: types
   

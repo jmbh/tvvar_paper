@@ -1,4 +1,6 @@
-# jonashaslbeck@gmail.com; November 2017
+# jonashaslbeck@gmail.com; September 2019
+
+figDir_paper <- "/" # Define !!!
 
 p <- 6
 m <- matrix(0, p, p)
@@ -7,10 +9,14 @@ diag(m) <- 1
 
 library(qgraph)
 
-pdf("VS_UT_SystemFigure.pdf", width = 4, height = 4)
+pdf(paste0(figDir_paper,"VS_UT_SystemFigure.pdf"), width = 4, height = 4)
 qgraph(m, 
        layout="circle", 
-       diag = TRUE)
+       diag = TRUE, 
+       vsize = 14,
+       esize= 7, 
+       asize=7,
+       mar = rep(7, 4))
 dev.off()
 
 

@@ -6,6 +6,10 @@ figDir <- paste0(simDir, 'figures/')
 figDir_paper <- paste0(simDir, 'figures_paper/')
 dir_files <- paste0(simDir, "output/")
 
+
+# DEVEL:
+figDir_paper <- paste0(simDir, "figures/")
+
 # ----------------------------------------------------------------------------------
 # --------------------------------- 1) Load Data -----------------------------------
 # ----------------------------------------------------------------------------------
@@ -45,10 +49,11 @@ for(i in 1:n_files) {
 n <- 12
 sp <- 3 # P(e) = 0.2
 p <- 2 # p = 10
-i <- 55
+i <- 1
 
 # example true type graph:
-l_data[[i]][[n]][[sp]][[p]]$Graph$Gind
+X <- l_data[[i]][[n]][[sp]][[p]]$Graph$Gind
+sum(X!=0) - p
 
 
 # ---------- 2.1) Get Estimates ----------
@@ -109,6 +114,8 @@ varSim_PP <- function(l_data,
           
           # Storage for local matrix
           i_mat <- matrix(NA, ncol=24, nrow= nodes_within_degree * nNodes)
+          
+          browser()
           
           # Loop over all edge parameters
           counter <- 1
@@ -341,6 +348,8 @@ varSim_PP <- function(l_data,
           l_Plist_gam_th[[i]] <- i_mat
           
           
+          print(paste0("n = ", n, " sp = ", sp, " p = ", p, " i = ", i))
+          
         } # end for: iterations
 
         # Collapse Across Iterations & fill into l_n
@@ -373,7 +382,7 @@ l_n <- varSim_PP(l_data = l_data,
                  pbar = TRUE)
 
 saveRDS(l_n, 'files/SimA_preprocessed.RDS')
-# l_n <- readRDS(paste0(simDir, 'files/SimA_preprocessed.RDS'))
+# l_n <- readRDS(paste0(simDir, '/files/SimA_preprocessed.RDS'))
 
 # Checking Example
 j <- 10
@@ -445,8 +454,8 @@ colnames(time_collapse2) <- c('iter', 'n', 'sp', 'p',
 
 time_collapse2_noNA <- na.omit(time_collapse2)
 
-saveRDS(time_collapse2_noNA, "files/varSim_CompTime.RDS")
-# time_collapse2 <- readRDS("files/varSim_CompTime.RDS")
+saveRDS(time_collapse2_noNA, paste0(simDir,"files/varSim_CompTime.RDS"))
+# time_collapse2_noNA <- readRDS(paste0(simDir,"files/varSim_CompTime.RDS"))
 
 
 # ---------- 2.3) Compute Sparsity and Precision ----------
@@ -474,8 +483,8 @@ for(n in 1:12) {
   }
 }
 
-saveRDS(a_SP, "files/varSim_StructureRecovery.RDS")
-# a_SP <- readRDS("files/varSim_StructureRecovery.RDS")
+saveRDS(a_SP, paste0(simDir,"files/varSim_StructureRecovery.RDS"))
+# a_SP <- readRDS(paste0(simDir,"files/varSim_StructureRecovery.RDS"))
 
 
 # --------------------------------------------------------------------------------------------
@@ -485,29 +494,74 @@ saveRDS(a_SP, "files/varSim_StructureRecovery.RDS")
 
 # ---------- Simulation Setup: The 8 Edge types ----------
 
-n <- 12
-sp <- 3
-p <- 2
-data_sp_p <- l_n[[n]][[sp]][[p]]
 
-pdf(paste0(figDir_paper, 'Fig_8Types.pdf'), width = 12, height = 5)
+# Take time-varying parameter functions from VarSim_aux.R :
+
+
+edgetypes <- list()
+N <- 1000
+x <- seq(0, theta, length = N)
+k <- 15
+theta <- .35
+
+
+edgetypes[[1]] <- rep(theta, N) # Edge 1: Constant
+edgetypes[[2]] <- seq(0, theta, length = N) # Edge 2: Linear Increase
+edgetypes[[3]] <- seq(theta, 0, length = N) # Edge 3: Linear Decrease
+edgetypes[[4]] <- theta / (1 + exp (-k * (x - theta/2))) # Edge 4: Sigmoid Increase
+edgetypes[[5]] <- theta / (1 + exp (k * (x - theta/2))) # Edge 5: Sigmoid Decrease
+edgetypes[[6]] <- c(rep(theta, ceiling(N/2)), rep(0, floor(N/2))) # Edge 6: Step fuction increase
+edgetypes[[7]] <- c(rep(0, floor(N/2)), rep(theta, ceiling(N/2))) # Edge 7: Step fuction decrease
+edgetypes[[8]] <- rep(0, N) # Edge 8: Zero Constant
+
+
+v_texts <- c("(a) Constant Nonzero",
+             "(b) Linear Increase", 
+             "(c) Linear Decrease", 
+             "(d) Sigmoid Increase", 
+             "(e) Sigmoid Decrease", 
+             "(f) Step Function Up", 
+             "(g) Step Function Down", 
+             "(h) Constant Zero")
+
+# Some plotting options
+lwd <- 2
+
+pdf(paste0(figDir_paper, 'Fig_8Types.pdf'), width = 12, height = 6)
 
 par(mfrow=c(2,4))
-counter <- 1
-for(type in c(1, 2, 3, 4, 5, 6, 7, 0)) {
+
+# Loop over 8 types
+for(type in 1:8) {
+  
+  # Setup plotting area
   plot.new()
-  par(mar=c(2, 5, 1, 1))
-  plot.window(xlim=c(1, 20), ylim=c(-.15, .45))
-  box()
+  par(mar=c(3, 5, 3, 1))
+  plot.window(xlim = c(0, N), ylim = c(-.1, .4))
   
-  axis(2, c(0, .35), las=2)
+  axis(2, seq(-.1, .4, length=6), las=2)
+  axis(1, labels=FALSE)
+  mtext(text = v_texts[type], side = 3, line=1, cex=1.2)
+
+  # Continuous functions
+  if(type %in% c(1:5, 8)) {
+    lines(1:1000, edgetypes[[type]], lwd=lwd)
+  }
   
-  lines(data_sp_p[[1]][data_sp_p[[1]][,4] == type, ][1, 5:24], lty=1, lwd=2)
-  if(type %in% c(1, 5))  title(ylab = 'True Parameter', cex.lab=1.5)
-  if(type %in% c(5, 6, 7, 0))  title(xlab = 'Time', line = 1, cex.lab=1.5)
+  # Step functions
+  if(type %in% 6:7) {
+    lines(1:500, edgetypes[[type]][1:500], lwd=lwd)
+    lines(501:1000, edgetypes[[type]][501:1000], lwd=lwd)
+    segments(500.5, 0, 500.5, theta, lty=2)
+  }
+  
+  # Legends and titles
+  if(type %in% c(1, 5))  title(ylab = 'Parameter Value', cex.lab=1.4)
+  if(type %in% 5:8)  title(xlab = 'Time', line = 1.5, cex.lab=1.4)
   
   text(18, .55, paste0('(', letters[counter], ')'), cex = 2)
-  counter <- counter + 1
+
+  
 }
 
 dev.off()
@@ -524,7 +578,7 @@ p_seq <- c(5, 10, 20)
 sp_seq <- c(.05, .1, .2)
 n_seq_log <- seq(3, 7.5, length = 12)
 n_seq <- round(exp(n_seq_log))
-cols <- RColorBrewer::brewer.pal(6, 'Set1')
+cols <- RColorBrewer::brewer.pal(6, 'Paired')
 
 # ----- Some Settings -----
 
@@ -543,18 +597,29 @@ lo <- layout(mat)
 
 # ----- Plot Results -----
 
-letter_c <- 1
-v_letters <- paste0("(",letters[1:9], ")")
+v_titles <- c("(a) Constant Nonzero", 
+              "(b) Linear", 
+              "(c) Sigmoid", 
+              "(d) Step Function", 
+              "(e) Constant Zero")
 
-for(type in c(1, 2, 4, 7, 0)) {
+
+for(ti in 1:5) {
   
+  type <- c(1, 2, 4, 7, 0)[ti]
+  
+  # Setup plotting area
   plot.new()
-  par(mar = c(4,4,2,2))
-  ymax <- .5
+  par(mar = c(4,4,1,2))
+  ymax <- .4
   plot.window(xlim = c(1, 12), ylim = c(0, ymax))
-  axis(1, at = 1:12, labels = n_seq, cex.axis = .65)
+  axis(1, at = 1:12, labels = n_seq, cex.axis = .8, las=2)
   axis(2, round(seq(0, ymax, length = 5), 2), las = 2, cex.axis = .8)
   
+  # mtext(text = v_titles[ti], side = 3, line=1)
+  text(x = 6.5, y=.4, v_titles[ti], cex=1.3)
+  
+  # Aggregate and plot
   l_n_errors <- list()
   l_n_errors_qt25 <- list()
   l_n_errors_qt75 <- list()
@@ -565,13 +630,56 @@ for(type in c(1, 2, 4, 7, 0)) {
       
       data_sp_p <- l_n[[n]][[sp]][[p]]
       
-      # True matrix
-      ss_true <- data_sp_p[[1]][data_sp_p[[1]][,4] == type, ][,5:24]
+
+      # Get True and Estimated Matrices
+    
       
       # Estimated Matrix
-      ss_est <- data_sp_p[[est]][data_sp_p[[est]][,4] == type, ][,5:24]
+      # Using if statements to combine symmetrical results
+      if(type==1) {
+        ss_est <- data_sp_p[[est]][data_sp_p[[est]][, 4] == 1, ][,5:24]
+        ss_true <- data_sp_p[[1]][data_sp_p[[1]][, 4] == 1, ][,5:24]
+
+      }
+        
+      if(type==0) {
+        ss_est <- data_sp_p[[est]][data_sp_p[[est]][, 4] == 0, ][,5:24]
+        ss_true <- data_sp_p[[1]][data_sp_p[[1]][, 4] == 0, ][,5:24]
+      }
+        
+      if(type==2) {
+        ss_est1 <- data_sp_p[[est]][data_sp_p[[est]][, 4] == 2, ][,5:24]
+        ss_est2 <- data_sp_p[[est]][data_sp_p[[est]][, 4] == 3, ][,24:5]
+        ss_est <- rbind(ss_est1, ss_est2)
+        
+        ss_true1 <- data_sp_p[[1]][data_sp_p[[1]][, 4] == 2, ][,5:24]
+        ss_true2 <- data_sp_p[[1]][data_sp_p[[1]][, 4] == 3, ][,24:5]
+        ss_true <- rbind(ss_true1, ss_true2)
+      }
+      if(type==4) {
+        ss_est1 <- data_sp_p[[est]][data_sp_p[[est]][, 4] == 4, ][,5:24]
+        ss_est2 <- data_sp_p[[est]][data_sp_p[[est]][, 4] == 5, ][,24:5]
+        ss_est <- rbind(ss_est1, ss_est2)
+        
+        ss_true1 <- data_sp_p[[1]][data_sp_p[[1]][, 4] == 4, ][,5:24]
+        ss_true2 <- data_sp_p[[1]][data_sp_p[[1]][, 4] == 5, ][,24:5]
+        ss_true <- rbind(ss_true1, ss_true2)
+        
+      }
       
-      # Compute Absolute Error
+      if(type==7) {
+        ss_est1 <- data_sp_p[[est]][data_sp_p[[est]][, 4] == 6, ][,5:24]
+        ss_est2 <- data_sp_p[[est]][data_sp_p[[est]][, 4] == 7, ][,24:5]
+        ss_est <- rbind(ss_est1, ss_est2)
+        
+        ss_true1 <- data_sp_p[[1]][data_sp_p[[1]][, 4] == 6, ][,5:24]
+        ss_true2 <- data_sp_p[[1]][data_sp_p[[1]][, 4] == 7, ][,24:5]
+        ss_true <- rbind(ss_true1, ss_true2)
+        
+      }
+      
+        
+      # Compute Compute Absolute Error
       ss_error <- ss_true - ss_est
       ss_error_pos <- abs(ss_error)
       ss_error_pos_cm <- colMeans(ss_error_pos)
@@ -599,8 +707,8 @@ for(type in c(1, 2, 4, 7, 0)) {
     
     # display means
     means <- unlist(lapply(l_n_errors, mean))
-    points(1:12, means, col = cols[c(1,2,3,6,4,5)][est-1], pch=20, cex = 1)
-    lines(1:12, means, col = cols[c(1,2,3,6,4,5)][est-1], pch=20)
+    # points(1:12, means, col = cols[c(1,2,3,6,4,5)][est-1], pch=20, cex = 1)
+    lines(1:12, means, col = cols[est-1], pch=20, lwd=2, lty = est-1)
     
     # Display CIs
     if(CI) {
@@ -608,25 +716,20 @@ for(type in c(1, 2, 4, 7, 0)) {
 
       # Lower CI
       mean_25 <- unlist(lapply(l_n_errors_qt25, mean)) # average across 20 estimation points
-      lines(1:12, mean_25, lty=2, col = cols[c(1,2,3,6,4,5)][est-1])
+      lines(1:12, mean_25, lty = est-1, col = cols[est-1])
       # points(1:12, mean_25, lty=2, col = cols[c(1,2,3,6,5,4)][est-1], pch=21)
       
       # Upper CI
       mean_75 <- unlist(lapply(l_n_errors_qt75, mean)) # average across 20 estimation points
-      lines(1:12, mean_75, lty=2, col = cols[c(1,2,3,6,4,5)][est-1])
+      lines(1:12, mean_75, lty = est-1, col = cols[est-1])
       # points(1:12, mean_75, lty=2, col = cols[c(1,2,3,6,5,4)][est-1], pch=21)
       
     }
     
   } # end for: est
   
-  if(type == 0) title(xlab = 'Number of Time points')
+  if(type == 0) title(xlab = 'Number of Time Points')
   if(type %in% c(1,4,0)) title(ylab = 'Mean Absolute Error')
-  
-  text(11.5, .48, v_letters[letter_c], cex = 1.3)
-  
-  letter_c <- letter_c + 1
-  
   
 } # end for: types
 
@@ -638,71 +741,29 @@ plot.window(xlim=c(0, 1), ylim=c(0, 1))
 
 legend("center",
        # c('GLM(L1)', 'GLM', 'KS(L1)', 'KS', 'GAM', 'GAM(st)'),
-       c('GLM', 'GLM(L1)', 'KS', 'KS(L1)', 'GAM', 'GAM(st)'),
-       col = cols[c(1,2,3,6,4,5)], 
-       lty = rep(1, 6),
+       c('GLM(L1)', 'GLM', 'KS(L1)', 'KS', 'GAM', 'GAM(st)'),
+       col = cols, 
        bg = 'white',
        bty = "n",
-       cex = 1.2)
+       cex = 1.5, 
+       lty=1:6, 
+       lwd = rep(2, 6))
 
 
 
 
 } # end of plotting Function
 
-height = 9
-pdf(paste0(figDir_paper, 'Fig_Sim_A_abserror.pdf'), width = height * 3 / 4, height = height)
-
+sc <- .9
+pdf(paste0(figDir_paper, 'Fig_Sim_A_abserror.pdf'), width = 6.5*sc, height = 8*sc)
 plotFigureA(CI = FALSE)
-
 dev.off()
 
 
 height = 9
-pdf(paste0(figDir_paper, 'Fig_Sim_A_abserror_withCIs.pdf'), width = height * 3 / 4, height = height)
-
+pdf(paste0(figDir_paper, 'Fig_Sim_A_abserror_withCIs.pdf'), width = 6.5*sc, height = 8*sc)
 plotFigureA(CI = TRUE)
-
 dev.off()
-
-
-
-# ----- Inlay Pictures -----
-
-# Get true sequences
-mains <- c("Constant nonzero",
-           "Linear increase", 
-           "Sigmoid increase",
-           "Step function",
-           "Constant zero")
-
-# Plot
-n <- 1
-sp <- 3
-p <- 3
-
-data_sp_p <- l_n[[n]][[sp]][[p]]
-
-dev.off()
-counter <- 1
-for(type in c(1, 2, 4, 7, 0)) {
-  
-  pdf(paste0(figDir_paper, 'Inlay_', type, '.pdf'), width = 4, height = 2.5)
-  
-  plot.new()
-  par(mar=c(2, 5, 2, 1))
-  plot.window(xlim=c(1, 20), ylim=c(-.15, .45))
-  box()
-  axis(2, c(0, .35), las=2)
-  lines(data_sp_p[[1]][data_sp_p[[1]][,4] == type, ][1, 5:24], lty=1, lwd=2)
-  title(ylab = 'Parameter value', cex.lab=1.5)
-  title(xlab = 'Time', line = 1, cex.lab=1.5)
-  title(main = mains[counter])
-  counter <- counter + 1
-  dev.off()
-  
-} # end for: plotting types
-
 
 
 
@@ -710,160 +771,187 @@ for(type in c(1, 2, 4, 7, 0)) {
 # ---------- Figure B: For 2 types (linear up, constant up) and n = {103, 530, 1803} ----------
 
 
-cols <- RColorBrewer::brewer.pal(6, 'Set1')
-
-height = 9
-pdf(paste0(figDir_paper, 'Fig_Sim_B_2Examples.pdf'), width = height * 3 / 4, height = height)
-
-# Setup Layout
-mat <- cbind(c(7,8,9),
-             c(1,2,3),
-             c(4,5,6))
-
-mat <- rbind(c(10,11,12), mat)
-
-lo <- layout(mat,
-             widths = c(1.2, 5.5, 5.5),
-             heights = c(.8, 6, 6, 6))
-
-
-# Fix parameters
-p <- 2
-sp <- 3
-
-letter_c <- 1
-v_letters <- paste0("(",letters[1:9], ")")
-
-
-for(type in 1:2) {
+plotFigureB <- function(CI=FALSE) {
   
-  for(n in c(5, 9, 12)) {
+  cols <- RColorBrewer::brewer.pal(6, 'Paired')
     
+  # Setup Layout
+  mat <- cbind(c(7,8,9),
+               c(1,2,3),
+               c(4,5,6))
+  
+  mat <- rbind(c(10,11,12), mat)
+  
+  lo <- layout(mat,
+               widths = c(1.2, 5.5, 5.5),
+               heights = c(.8, 6, 6, 6))
+  
+  # Fix parameters
+  p <- 2
+  sp <- 3
+  
+  letter_c <- 1
+  v_letters <- paste0("(",letters[1:9], ")")
+  
+  
+  for(type in 1:2) {
     
-    # Subset data
-    data_sp_p <- l_n[[n]][[sp]][[p]]
-    
-    plot.new()
-    par(mar=c(4,4,.5,.5))
-    plot.window(xlim=c(1,20), ylim=c(-.2, .7))
-    
-    # true parameter function
-    lines(data_sp_p[[1]][data_sp_p[[1]][,4] == type, ][1, 5:24], lty=1)
-    
-    
-    # define jittering, to aviod exactly overlapping lines
-    j <- .1
-    jitter <- c(3*j, -2*j, 2*j, -j, j, 2*j)
-    
-    # Loop over estimation methods (1=true)
-    for(est in 2:7) {
+    for(n in c(5, 9, 12)) {
       
-      # take subset for given estimation method
-      ss_est <- data_sp_p[[est]][data_sp_p[[1]][,4] == type, ]
-      ss_est <- ss_est[, -c(1:4)]
       
-      # Set to zero if tvGAM wasn't estimated
-      if(est == 5) {
-        if(n == 1 & p > 1) ss_est <- matrix(rep(NA, 20), nrow=1)
-        if(n == 2 & p > 2) ss_est <- matrix(rep(NA, 20), nrow=1)
+      # Subset data
+      data_sp_p <- l_n[[n]][[sp]][[p]]
+      
+      plot.new()
+      par(mar=c(4,4,.5,.5))
+      plot.window(xlim=c(1,20), ylim=c(-.2, .8))
+      
+      # true parameter function
+      lines(data_sp_p[[1]][data_sp_p[[1]][,4] == type, ][1, 5:24], lty=1)
+      
+      
+      # define jittering, to aviod exactly overlapping lines
+      j <- .15
+      jitter <- c(3*j, -2*j, 2*j, -j, j, 2*j)
+      
+      # Loop over estimation methods (1=true)
+      for(est in 2:7) {
+        
+        # take subset for given estimation method
+        ss_est <- data_sp_p[[est]][data_sp_p[[1]][,4] == type, ]
+        ss_est <- ss_est[, -c(1:4)]
+        
+        # Set to zero if tvGAM wasn't estimated
+        if(est == 5) {
+          if(n == 1 & p > 1) ss_est <- matrix(rep(NA, 20), nrow=1)
+          if(n == 2 & p > 2) ss_est <- matrix(rep(NA, 20), nrow=1)
+        }
+        
+        
+        # display means (on top)
+        means <- colMeans(ss_est)
+        # points(1:20 + jitter[est-1], means, col = cols[c(1,2,3,6,4,5)][est-1], pch=20, cex = 1)
+        lines(1:20, means, col = cols[est-1], pch=20, lwd=1.5, lty=est-1)
+        
+        # display SDs
+        
+        
+        if(CI) {
+          
+          qtls <- apply(ss_est, 2, function(x) quantile(x, probs = c(.10, .90)))
+
+          lines(1:20, qtls[1, ], col = cols[est-1], pch=20, lwd=.9, lty=est-1)
+          lines(1:20, qtls[2, ], col = cols[est-1], pch=20, lwd=.9, lty=est-1)
+
+          # segments(x0 = 1:20 + jitter[est-1],
+          #          y0 = qtls[1, ],
+          #          x1 = 1:20 + jitter[est-1],
+          #          y1 = qtls[2, ],
+          #          col = cols[est-1])
+          
+        } 
+        
+      
+      } # end for: est
+      
+      
+      # Axis
+      axis(1, c(1, 5, 10, 15, 20))
+      axis(2, c(-.2, 0, .2, .4, .6, .8), las=2)
+      
+      
+      # Legend
+      if(type == 2 & n == 9) {
+        
+        # plot.new()
+        # plot.window(xlim=c(0, 1), ylim=c(0, 1))
+        
+        legend("topleft",
+               c('GLM(L1)', 'GLM', 'KS(L1)', 'KS', 'GAM', 'GAM(st)'),
+               col = cols, 
+               lty = 1:6,
+               bg = 'white',
+               bty = "n",
+               cex = 1)
+
       }
       
-      # display means
-      means <- colMeans(ss_est)
-      points(1:20 + jitter[est-1], means, col = cols[c(1,2,3,6,4,5)][est-1], pch=20, cex = 1)
-      lines(1:20, means, col = cols[c(1,2,3,6,4,5)][est-1], pch=20, cex = 1)
+      if(type == 1)     title(ylab = 'Parameter Value')
+      if(n == 12) title(xlab = 'Estimation Points')
       
       
-      # display SDs
+      text(19, .75, v_letters[letter_c], cex = 1.3)
       
-      sds <- apply(ss_est, 2, sd)
-      segments(x0 = 1:20 + jitter[est-1],
-               y0 = means-sds,
-               x1 = 1:20 + jitter[est-1],
-               y1 = means+sds,
-               col = cols[c(1,2,3,6,5,4)][est-1])
+      letter_c <- letter_c + 1
       
     }
-    
-    
-    # Axis
-    axis(1, c(1, 5, 10, 15, 20))
-    axis(2, c(-.2, 0, .2, .4, .6,  .7), las=2)
-    
-    
-    # Legend
-    if(type == 2 & n == 9) {
-      
-      # plot.new()
-      # plot.window(xlim=c(0, 1), ylim=c(0, 1))
-      
-      legend("top",
-             # c('GLM(L1)', 'GLM', 'KS(L1)', 'KS', 'GAM', 'GAM(st)'),
-             c('GLM', 'GLM(L1)', 'KS', 'KS(L1)', 'GAM', 'GAM(st)'),
-             col = cols[c(1,2,3,6,4,5)], 
-             lty = rep(1, 6),
-             bg = 'white',
-             bty = "n",
-             cex = 1.2)
-      
-    }
-    
-    if(type == 1)     title(ylab = 'Parameter Value')
-    if(n == 12) title(xlab = 'Estimation Points')
-    
-    
-    text(19, .65, v_letters[letter_c], cex = 1.3)
-    
-    letter_c <- letter_c + 1
     
   }
   
-}
-
-
-# add N variation
-
-cex_metaT <- 1.7
-
-for(n_ylab in c(103, 530, 1803)) {
-
+  
+  # add N variation
+  
+  cex_metaT <- 1.7
+  
+  for(n_ylab in c(103, 530, 1803)) {
+    
+    par(mar=c(0,0,0,0))
+    plot.new()
+    plot.window(xlim=c(-.01, .01), ylim=c(-.01, .01))
+    # rect(-.01, -.01, .01, .01, col="red")
+    text(0, 0, paste0('         n = ', n_ylab), srt=90, cex=cex_metaT)
+    
+  }
+  
+  
+  # Add title for edge types
+  plot.new() # empty
+  
   plot.new()
   par(mar=c(0,0,0,0))
   plot.window(xlim=c(-.01, .01), ylim=c(-.01, .01))
-  text(0, 0, paste0('         n = ', n_ylab), srt=90, cex=cex_metaT)
+  text(0, 0, '          Constant Nonzero', cex=cex_metaT)
+  
+  plot.new()
+  par(mar=c(0,0,0,0))
+  plot.window(xlim=c(-.01, .01), ylim=c(-.01, .01))
+  text(0, 0, '     Linear Increase', cex=cex_metaT)
+  
+} # eoF
 
-}
 
-
-# Add title for edge types
-plot.new() # empty
-
-plot.new()
-par(mar=c(0,0,0,0))
-plot.window(xlim=c(-.01, .01), ylim=c(-.01, .01))
-text(0, 0, '       Constant', cex=cex_metaT)
-
-plot.new()
-par(mar=c(0,0,0,0))
-plot.window(xlim=c(-.01, .01), ylim=c(-.01, .01))
-text(0, 0, '     Linear Increase', cex=cex_metaT)
-
+sc <- .9
+pdf(paste0(figDir_paper, 'Fig_Sim_B_2Examples.pdf'), width = 6.5*sc, height = 8*sc)
+plotFigureB(CI=FALSE)
 dev.off()
+
+
+sc <- .9
+pdf(paste0(figDir_paper, 'Fig_Sim_B_2Examples_withCIs.pdf'), width = 6.5*sc, height = 8*sc)
+plotFigureB(CI=TRUE)
+dev.off()
+
+
 
 
 
 # ---------- Figure C: Precision/Sensitivity and total absolute error ----------
 
 
+n_seq_log <- seq(3, 7.5, length = 12)
+n_seq <- round(exp(n_seq_log))
+
 height = 4
 pdf(paste0(figDir_paper, 'Fig_Sim_C_Recov_PoolAv.pdf'), width = height * 2, height = height)
+
+cols <- RColorBrewer::brewer.pal(6, 'Paired')
 
 p <- 2
 sp <- 3
 
 # Set up Plotting area
 par(mfrow = c(1,2),
-    mar = c(4,4,1.5,2))
+    mar = c(4,3,3,2))
 
 
 # Set un-identified variations to zero
@@ -878,38 +966,42 @@ plot.window(xlim=c(1, 12), ylim=c(0, 1))
 est_all <- 7
 
 for(est in 2:est_all) {
-  lines(a_SP_new[, sp, p, est, 1], col = cols[c(1,2,3,6,4,5)][est-1])
-  points(a_SP_new[, sp, p, est, 1], col = cols[c(1,2,3,6,4,5)][est-1], pch=20)
+  lines(a_SP_new[, sp, p, est, 1], col = cols[est-1], lwd=2, lty=est-1)
+  # points(a_SP_new[, sp, p, est, 1], col = cols[est-1], pch=20)
 }
-axis(1, at = 1:12, label = n_seq, cex.axis = .44)
-title(xlab = 'Number of Time points')
+axis(1, at = 1:12, label = n_seq, cex.axis = .9, las=2)
+title(xlab = 'Number of Time Points')
 axis(2, c(0, .5, 1), las=2)
-title(ylab = 'Sensitivity', cex = 1.5)
+# title(ylab = 'Sensitivity', cex = 1.5)
+mtext("Sensitivity", side = 3, line=1, cex=1.2)
 
 # Precision
 plot.new()
 plot.window(xlim=c(1, 12), ylim=c(0, 1))
 for(est in 2:est_all) {
-  lines(a_SP_new[, sp, p, est, 2], col = cols[c(1,2,3,6,4,5)][est-1])
-  points(a_SP_new[, sp, p, est, 2], col = cols[c(1,2,3,6,4,5)][est-1], pch=20)
+  lines(a_SP_new[, sp, p, est, 2], col = cols[est-1], lwd=2, lty=est-1)
+  # points(a_SP_new[, sp, p, est, 2], col = cols[est-1], pch=20)
 }
-axis(1, at = 1:12, label = n_seq, cex.axis = .44)
+axis(1, at = 1:12, label = n_seq, cex.axis = .9, las=2)
 title(xlab = 'Number of Time points')
 axis(2, c(0, .5, 1), las=2)
-title(ylab = 'Precision', cex = 1.5)
+# title(ylab = 'Precision', cex = 1.5)
+mtext("Precision", side = 3, line=1, cex=1.2)
 
 # Legend
 legend("left",
-       # c('GLM(L1)', 'GLM', 'KS(L1)', 'KS', 'GAM', 'GAM(st)'),
-       c('GLM', 'GLM(L1)', 'KS', 'KS(L1)', 'GAM', 'GAM(st)'),
-       col = cols[c(1,2,3,6,4,5)], 
-       lty = rep(1, 6),
+       c('GLM(L1)', 'GLM', 'KS(L1)', 'KS', 'GAM', 'GAM(st)'),
+       col = cols, 
+       lty = 1:6,
        bg = 'white',
        bty = "n",
-       cex = 1.2)
+       cex = 1)
 
 
 dev.off()
+
+
+
 
 
 # ---------- Figure D: Computational Cost ----------
@@ -917,7 +1009,7 @@ dev.off()
 TC <- as.data.frame(time_collapse2_noNA)
 
 # Plotting
-pdf(paste0(figDir_paper, 'Fig_Sim_D_CompCost.pdf'), width = 7.5, height = 4)
+pdf(paste0(figDir_paper, 'Fig_Sim_D_CompCost.pdf'), width = 6, height = 4)
 
 par(mfrow=c(1,1), mar = c(4, 4, 1, 1))
 
@@ -927,7 +1019,7 @@ p <- 2 # fix p
 # Setup
 plot.new()
 plot.window(xlim=c(1,12), ylim=c(0,maxtime))
-box()
+# box()
 axis(1, n_seq, at = 1:12, cex = .50)
 axis(2, c(1, 5, 10,15), las = 2)
 

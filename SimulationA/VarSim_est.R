@@ -217,7 +217,7 @@ outlist <- foreach(n=1:12,
                                                     thresholds = "none")
                          
                          # Delete model objects to save disc space
-                         l_n$tvmvar_unreg$tvmodels <- NULL
+                         # l_n$tvmvar_unreg$tvmodels <- NULL
                          
                          l_n$tvmvar.time_unreg <- proc.time()[3] - timer
                          

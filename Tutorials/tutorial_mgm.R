@@ -1,4 +1,4 @@
-# jonashaslbeck@gmail.com, April 2018
+# jonashaslbeck@gmail.com, February 2020
 
 library(devtools)
 # install_github("jmbh/mgm")
@@ -29,6 +29,7 @@ head(time_data)
 # Bandwidth selection (in Appendix A)
 bwSeq <- seq(0.01, 1, length = 10)
 
+set.seed(1)
 bw_object <- bwSelect(data = mood_data,
                       type = rep("g", 12),
                       level = rep(1, 12),
@@ -67,7 +68,6 @@ tvvar_obj <- tvmvar(data = mood_data,
 tvvar_obj
 
 
-
 # ----------------------------------------------------------------------------------
 # ----------------------- 3) Reliability -------------------------------------------
 # ----------------------------------------------------------------------------------
@@ -81,8 +81,8 @@ res_obj <- resample(object = tvvar_obj,
                     seeds = 2:51, 
                     quantiles = c(.05, .95))
 
-saveRDS(res_obj, file="res_obj_nB50_bw34.RDS")
-res_obj <- readRDS(file="res_obj_nB50_bw34.RDS")
+# saveRDS(res_obj, file="res_obj_nB50_bw34.RDS")
+# res_obj <- readRDS(file="res_obj_nB50_bw34.RDS")
 
 proc.time()[3] - t1 # Note that this takes a while
 
@@ -158,13 +158,26 @@ par_ests <- tvvar_obj$wadj
 ind_negative <- which(tvvar_obj$signs == -1, arr.ind = T)
 par_ests[ind_negative] <- par_ests[ind_negative] * -1
 
-# Get largest effects
-larg <- sort(as.numeric(mean_wadj), decreasing = T)
-m_largPar <- matrix(NA, nrow = 20, ncol = 2)
-for(i in 1:20) m_largPar[i, ] <- which(mean_wadj == larg[i], arr.ind = TRUE)
+# Find parameters with highest SD
+wadj_ws <- tvvar_obj$wadj
+wadj_ws[tvvar_obj$edgecolor=="red"] <- wadj_ws[tvvar_obj$edgecolor=="red"] * -1
+parm_sds <- apply(wadj_ws, 1:2, sd)
+parm_sds_mat <- matrix(NA, 12^2, 3)
+counter <- 1
+for(i in 1:12) {
+  for(j in 1:12) {
+    parm_sds_mat[counter, ] <- c(i, j, parm_sds[i, j]) 
+    counter <- counter + 1
+  }
+}
+
+parm_sds_mat_ord <- parm_sds_mat[order(parm_sds_mat[, 3], decreasing = TRUE), ]
+head(parm_sds_mat_ord) # six most time-varying parameters
 
 
 # ----- Plotting ------
+
+library(qgraph)
 
 pdf(paste0(figDir, "Fig_Application_mgm.pdf"), width = 8, height = 7)
 
@@ -174,9 +187,8 @@ lmat <- matrix(c(1, 2, 3,
                  4, 4, 4,
                  5, 5, 5), ncol=3, byrow = T)
 lo <- layout(lmat, 
-             heights = c(.7,.1, .85), 
+             heights = c(.7,.1, .6), 
              widths = c(1, 1, 1))
-# layout.show(lo)
 
 
 # 2) Two Network Plots
@@ -186,7 +198,7 @@ Q <- qgraph(t(mean_wadj), DoNotPlot=TRUE)
 saveRDS(Q$layout, "layout_mgm.RDS")
 
 # Plot graph at selected fixed time points
-tpSelect <- c(8, 15, 18)
+tpSelect <- c(2, 10, 18)
 
 # Switch to colorblind scheme
 tvvar_obj$edgecolor[, , , ][tvvar_obj$edgecolor[, , , ] == "darkgreen"] <- c("darkblue")
@@ -201,9 +213,9 @@ for(tp in tpSelect) {
          vsize = 13, 
          esize = 10,
          asize = 10, 
-         mar = c(6, 6, 6, 6), 
+         mar = rep(5, 4), 
          minimum = 0, 
-         maximum = .45, 
+         maximum = .5, 
          lty = t(lty_array[, , 1, tp]),
          pie = pred_obj$tverrors[[tp]][, 3])
 }
@@ -217,68 +229,146 @@ f_timeline_new(length = .1,
 
 # 5) Line-plots + CIs
 plot.new()
-par(mar = c(4,4,1,1))
-plot.window(xlim=c(1, 20), ylim=c(-.5, .75))
+par(mar = c(4,4,0,1))
+plot.window(xlim=c(1, 20), ylim=c(-.25, .55))
 axis(1, c(1, 5, 10, 15, 20), labels=T)
-axis(2, c(-.5, -.25, 0, .25, .5, .75), las=2)
+axis(2, c(-.25, 0, .25, .5), las=2)
 abline(h = 0, col = "grey", lty=2)
 title(xlab = "Estimation points", cex.lab = 1.2)
 title(ylab = "Parameter estimate", cex.lab = 1.2)
 
-# Displayed parameters:
-# Down (2) -> Down (2)
-# Satisfied (4) -> Relaxed (1) 
-# Satisfied (4) -> Down (2) 
-# mood_labels
-# m_largPar
 
-# mood_labels[c(2,4)]
-
-m_par_display <- matrix(c(2, 2, 
-                          1, 4, 
-                          2, 4), ncol = 2, byrow = T)
+head(parm_sds_mat_ord) # pick three highest
+m_par_display <- matrix(c(1, 1, 
+                          4, 12, 
+                          10, 4), ncol = 2, byrow = T)
 
 # Select colors
 library(RColorBrewer)
+library(scales)
 cols <- brewer.pal(5, "Set1")[c(2,4,5)] # avoid red/green because used for edges in upper panel
-v_jitter <- c(-.1, 0, .1)
 
 for(i in 1:nrow(m_par_display)) {
   
-  # Plot point estimates
   par_row <- m_par_display[i, ]
-  P1_pointest <- par_ests[par_row[1], par_row[2], 1, ]
-  points((1:20)+v_jitter[i], P1_pointest, col = cols[i], pch = 20, cex = 2) 
-  lines((1:20)+v_jitter[i], P1_pointest, col = cols[i], lwd = 2) 
   
-  # Plot uncertainty estimates
+  ## Plot point estimates
+  P1_pointest <- par_ests[par_row[1], par_row[2], 1, ]
+  lines(1:20, P1_pointest, col = cols[i], lwd = 2, lty=i) 
+  
+  
+  ## Plot uncertainty estimates [new shading]
+  # Compute CIs
   CIs <- apply(res_obj$bootParameters[par_row[1], par_row[2], 1, , ], 1, function(x) {
     quantile(x, probs = c(.05, .95))
   } )
-  CIs <- CIs #- P1_pointest # center them!
   
-  segments((1:20)+v_jitter[i], CIs[1,]  , (1:20)+v_jitter[i], CIs[2,],
-           col = cols[i],
-           lwd = 2)
+  # Plot shading
+  polygon(x = c(1:20, 20:1), y = c(CIs[1,], rev(CIs[2,])), col=alpha(colour = cols[i], alpha = .3), border=FALSE)
   
-}
 
+  
+} # end for: i
 
 # Legend
-legend_labels <- c(expression("Down"["t-1"]  %->%  "Down"["t"]),
-                   expression("Satisfied"["t-1"]  %->%  "Relaxed"["t"]),
-                   expression("Satisfied"["t-1"]  %->%  "Down"["t"]))
+legend_labels <- c(expression("Relaxed"["t-1"]  %->%  "Relaxed"["t"]),
+                   expression("Satisfied"["t-1"]  %->%  "Strong"["t"]),
+                   expression("Guilty"["t-1"]  %->%  "Satisfied"["t"]))
 
-legend(1, .72, 
+legend(1, .49, 
        legend_labels,
        col = cols, 
-       lwd = 2, bty = "n", cex = 1.5, horiz=T)
+       lwd = 2, bty = "n", cex = 1.5, horiz=T, lty=1:3)
 
 
 dev.off()
 
 
+# ----------------------------------------------------------------------------------
+# ----------------------- 4) Time-varying or not? A Bootstrap test -----------------
+# ----------------------------------------------------------------------------------
 
+
+# ----- A) Fit once time-varying on actual data  -----------------------------------
+
+# Get RMSE from time-varying model
+pred_emp <- predict(object = tvvar_obj, 
+                    data = mood_data, 
+                    tvMethod = "closestModel")
+
+error_emp <- mean(pred_emp$errors$RMSE)
+
+
+
+# ----- B) Fit stationary model to be able to simulate data ------------------------
+
+var_obj <- mvar(data = mood_data,
+                type = rep("g", 12),
+                level = rep(1, 12), 
+                lambdaSel = "CV",
+                timepoints = time_data$time_norm, 
+                lags = 1,
+                beepvar = time_data$beepno,
+                dayvar = time_data$dayno,
+                scale = TRUE,
+                pbar = TRUE)
+
+# ----- C) Fit time-varying model to stationary data -------------------------------
+
+library(mlVAR)
+
+# Generate data
+n <- 876 #numer of efficient data points, see above
+nIter <- 100
+
+l_data <- list()
+l_model <- list()
+l_meanerror <- rep(NA, nIter)
+
+# get parameters out of model object
+pars <- var_obj$wadj[, , 1]
+pars[var_obj$edgecolor=="red"] <- pars[var_obj$edgecolor=="red"] * -1
+intercepts <- unlist(var_obj$intercepts)
+
+for(i in 1:nIter) {
+  
+  l_data[[i]] <- simulateVAR(pars = pars, 
+                             means = intercepts, 
+                             Nt = n, 
+                             residuals = 1)  
+  
+  l_model[[i]] <- tvmvar(data = l_data[[i]],
+                         type = rep("g", 12),
+                         level = rep(1, 12), 
+                         lambdaSel = "CV",
+                         timepoints = 1:n, 
+                         estpoints = seq(0, 1, length = 20), 
+                         bandwidth = bandwidth,
+                         lags = 1,
+                         scale = TRUE,
+                         pbar = FALSE, 
+                         signInfo = FALSE)
+  
+  pred_res <- predict(object = l_model[[i]], 
+                      data = l_data[[i]], 
+                      tvMethod = "closestModel")
+  l_meanerror[i] <- mean(pred_res$errors$RMSE)
+  
+  print(i)
+  
+} # end for: i
+
+
+# saveRDS(l_model, file="l_model.RDS")
+# saveRDS(l_meanerror, file="l_meanerror.RDS")
+
+
+# ----- D) Evaluate ----------------------------------------------------------------
+
+hist(l_meanerror, xlim=c(0.9, 1)) # sampling distribution under H0
+abline(v = error_emp, col="red") # empirical error
+
+# Conclusion: significant by essentially any alpha-level
 
 
 
