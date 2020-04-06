@@ -21,7 +21,7 @@ The batch-files were used to run the 100 iterations in parallel on the UvA LISA 
 - VS_est_jobs.sh batch script sent to each node to estimate models
 - VS_est_sunmit.sh batch script to submit VS_est_jobs.sh to 100 nodes with iteration (seeds) 1:100
 
-The size of the 2*100 output files is 21GB and is therefore not included in this archive.
+The size of the 2 x 100 output files is 21GB and is therefore not included in this archive.
 
 The R-file VarSim_eval.R contains the code to reproduce all figures reported in the paper from the 100 data files and 100 estimation files obtained from the above simulation files.
 
@@ -40,12 +40,12 @@ The estimation is done in parallel in the same way as in Simulation 1:
 
 The size of the 2*100 output files is 5.3GB and is therefore not included in this archive.
 
-The code in VS_UT_eval.R preprocesses the 100 output files and reproduces Figure 10 in the paper.
+The code in VS_UT_eval.R preprocesses the 100 output files and reproduces Figure 9 in the paper.
 
 ## Tutorial
 
-- tutorial_mgm.R contains the code (shown in the paper) to estimate a time-varying VAR model with the KS(L1) method, plus the code to reproduce Figure 11
-- tutorial_tvvarGAM.R contains the code (shown in the paper) to estimate a time-varying VAR model with the GAM(st) method, plus the code to reproduce Figure 12
+- tutorial_mgm.R contains the code (shown in the paper) to estimate a time-varying VAR model with the KS(L1) method, plus the code to reproduce Figure 10
+- tutorial_tvvarGAM.R contains the code (shown in the paper) to estimate a time-varying VAR model with the GAM(st) method, plus the code to reproduce Figure 15
 
 
 ## Illustration Figures
@@ -55,4 +55,4 @@ This folder contains R-code to reproduce all illustration figures except Figure 
 - IF_Figure1_Intro.R code for Figure 1
 - IF_Figure2_GAM.R code for Figure 2
 - IF_Figure3_KS.R code for Figure 3
-- IF_Figure9_Simulation2.R code for Figure 9
+- IF_Figure9_Simulation2.R code for Figure 8
