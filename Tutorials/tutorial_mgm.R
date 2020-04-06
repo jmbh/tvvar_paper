@@ -10,7 +10,7 @@ library(qgraph)
 # ----------------------- 1) Data Preparation --------------------------------------
 # ----------------------------------------------------------------------------------
 
-library(mgm) # 1.2-7
+library(mgm) # 1.2-8
 
 # Subset Mood variables
 mood_data <- as.matrix(symptom_data$data[, 1:12])
@@ -195,7 +195,7 @@ lo <- layout(lmat,
 
 # Get layout of mean graph
 Q <- qgraph(t(mean_wadj), DoNotPlot=TRUE)
-saveRDS(Q$layout, "layout_mgm.RDS")
+saveRDS(Q$layout, "Tutorials/files/layout_mgm.RDS")
 
 # Plot graph at selected fixed time points
 tpSelect <- c(2, 10, 18)

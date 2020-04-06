@@ -1,11 +1,11 @@
-# jonashaslbeck@gmail.com, February 2020
+# jonashaslbeck@gmail.com, April 2020
 
 # remove.packages("tvvarGAM") # in case old version is installed
 # .rs.restartR()
 # library(devtools)
 # install_github("LauraBringmann/tvvarGAM")
 
-library(tvvarGAM)
+library(tvvarGAM) # 0.2.0
 library(qgraph) # plotting
 
 # Directory in which the figure should be plotted
@@ -35,16 +35,14 @@ head(time_data)
 tvvargam_obj <- tvvarGAM(data = mood_data,
                          beepvar = time_data$beepno,
                          dayvar = time_data$dayno,
-                         estimates = TRUE,
-                         plot = FALSE,
                          nb = 20,
                          scale = TRUE)
 
 # Save model object
-# saveRDS(tvvargam_obj, file="tvvargam20_obj.RDS")
-# tvvargam_obj <- readRDS(file="tvvargam20_obj.RDS")
+# saveRDS(tvvargam_obj, file="Tutorials/files/tvvargam20_obj.RDS")
+# tvvargam_obj <- readRDS(file="Tutorials/files/tvvargam20_obj.RDS")
 
-  
+
 # ----------------------------------------------------------------------------------
 # ----------------------- 3) Visualization -----------------------------------------
 # ----------------------------------------------------------------------------------
@@ -140,7 +138,7 @@ lo <- layout(lmat,
 
 # Get layout of mean graph
 Q <- list()
-Q$layout <- readRDS("layout_mgm.RDS")
+Q$layout <- readRDS("Tutorials/files/layout_mgm.RDS")
 
 
 # Plot graph at selected fixed time points
@@ -207,7 +205,7 @@ for(i in 1:nrow(m_par_display)) {
   
   polygon(x = c(1:20, 20:1), y = c(CI_low_par, rev(CI_up_par)), 
           col=alpha(colour = cols[i], alpha = .3), border=FALSE)
-
+  
 }
 
 
