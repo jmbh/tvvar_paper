@@ -99,7 +99,8 @@ pred_obj <- predict(object = tvvar_obj,
                     data = mood_data, 
                     errorCon = c("R2", "RMSE"),
                     tvMethod = "weighted", 
-                    consec = time_data$beepno)
+                    beepvar = time_data$beepno,
+                    dayvar = time_data$dayno)
 
 pred_obj$errors
 pred_obj$tverrors
@@ -272,8 +273,8 @@ for(i in 1:nrow(m_par_display)) {
 
 # Legend
 legend_labels <- c(expression("Relaxed"["t-1"]  %->%  "Relaxed"["t"]),
-                   expression("Satisfied"["t-1"]  %->%  "Strong"["t"]),
-                   expression("Guilty"["t-1"]  %->%  "Satisfied"["t"]))
+                   expression("Strong"["t-1"]  %->%  "Satisfied"["t"]),
+                   expression("Satisfied"["t-1"]  %->%  "Guilty"["t"]))
 
 legend(1, .49, 
        legend_labels,
